@@ -40,7 +40,15 @@ const English = () => {
     }
   }, []);
 
-  const toggleWord = (word: string) => {
+  const speakWord = (text: string) => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.8;
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const toggleWord = (word: string, englishText: string) => {
+    speakWord(englishText);
     const newLearned = { ...learnedWords, [word]: !learnedWords[word] };
     setLearnedWords(newLearned);
     localStorage.setItem("learnedWords", JSON.stringify(newLearned));
@@ -147,7 +155,7 @@ const English = () => {
                         return (
                           <div
                             key={index}
-                            onClick={() => toggleWord(word.russian)}
+                            onClick={() => toggleWord(word.russian, word.english)}
                             className={`flex items-center justify-between p-4 rounded-lg cursor-pointer transition-all ${
                               isLearned
                                 ? "bg-secondary/20 border-2 border-secondary"
@@ -156,7 +164,10 @@ const English = () => {
                           >
                             <div className="flex flex-col gap-1">
                               <span className="text-lg font-medium">{word.russian}</span>
-                              <span className="text-sm text-muted-foreground">{word.english}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-muted-foreground">{word.english}</span>
+                                <Icon name="Volume2" size={16} className="text-primary" />
+                              </div>
                             </div>
                             {isLearned && (
                               <Icon name="CheckCircle2" size={24} className="text-secondary" />
