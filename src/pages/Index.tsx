@@ -3,8 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import Icon from "@/components/ui/icon";
+import { useNavigate } from "react-router-dom";
 
 const Index = () => {
+  const navigate = useNavigate();
   const [progress, setProgress] = useState<{ [key: string]: boolean }>({});
   const [masteredTables, setMasteredTables] = useState<{ [key: number]: boolean }>({});
   const [showProgress, setShowProgress] = useState(false);
@@ -59,6 +61,14 @@ const Index = () => {
           >
             <Icon name={showProgress ? "Grid3x3" : "BarChart3"} size={20} />
             {showProgress ? "Таблица умножения" : "Отслеживание прогресса"}
+          </Button>
+          <Button
+            onClick={() => navigate("/english")}
+            variant="outline"
+            className="gap-2"
+          >
+            <Icon name="Languages" size={20} />
+            Английский язык
           </Button>
         </div>
 
