@@ -4,14 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import Icon from "@/components/ui/icon";
 import { useNavigate } from "react-router-dom";
-import AIHelper from "@/components/AIHelper";
 
 const Index = () => {
   const navigate = useNavigate();
   const [progress, setProgress] = useState<{ [key: string]: boolean }>({});
   const [masteredTables, setMasteredTables] = useState<{ [key: number]: boolean }>({});
   const [showProgress, setShowProgress] = useState(false);
-  const [aiQuestion, setAiQuestion] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem("multiplicationProgress");
@@ -102,39 +100,24 @@ const Index = () => {
                     return (
                       <div
                         key={key}
-                        className={`flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
+                        onClick={() => toggleCell(key)}
+                        className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all ${
                           isLearned
-                            ? "bg-secondary/20 border-secondary"
-                            : "bg-muted/30 hover:bg-muted/50 border-transparent"
+                            ? "bg-secondary/20 border-2 border-secondary"
+                            : "bg-muted/30 hover:bg-muted/50 border-2 border-transparent"
                         }`}
                       >
-                        <div
-                          onClick={() => toggleCell(key)}
-                          className="flex items-center justify-between flex-1 cursor-pointer"
-                        >
-                          <span className="text-lg font-medium">
-                            {num} × {multiplier} =
+                        <span className="text-lg font-medium">
+                          {num} × {multiplier} =
+                        </span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl font-bold text-primary">
+                            {num * multiplier}
                           </span>
-                          <div className="flex items-center gap-3">
-                            <span className="text-xl font-bold text-primary">
-                              {num * multiplier}
-                            </span>
-                            {isLearned && (
-                              <Icon name="CheckCircle2" size={20} className="text-secondary" />
-                            )}
-                          </div>
+                          {isLearned && (
+                            <Icon name="CheckCircle2" size={20} className="text-secondary" />
+                          )}
                         </div>
-                        <Button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setAiQuestion(`Объясни как решить пример: ${num} × ${multiplier} = ?`);
-                          }}
-                          variant="ghost"
-                          size="sm"
-                          className="ml-2"
-                        >
-                          <Icon name="Sparkles" size={18} className="text-primary" />
-                        </Button>
                       </div>
                     );
                   })}
@@ -223,14 +206,6 @@ const Index = () => {
                 </div>
               </CardContent>
             </Card>
-          </div>
-        )}
-
-        {aiQuestion && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="max-w-2xl w-full">
-              <AIHelper question={aiQuestion} onClose={() => setAiQuestion(null)} />
-            </div>
           </div>
         )}
       </div>
