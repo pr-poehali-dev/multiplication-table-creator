@@ -6,12 +6,17 @@ import Icon from "@/components/ui/icon";
 
 const Index = () => {
   const [progress, setProgress] = useState<{ [key: string]: boolean }>({});
+  const [masteredTables, setMasteredTables] = useState<{ [key: number]: boolean }>({});
   const [showProgress, setShowProgress] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem("multiplicationProgress");
     if (saved) {
       setProgress(JSON.parse(saved));
+    }
+    const savedMastered = localStorage.getItem("masteredTables");
+    if (savedMastered) {
+      setMasteredTables(JSON.parse(savedMastered));
     }
   }, []);
 
@@ -25,9 +30,17 @@ const Index = () => {
   const completedCells = Object.values(progress).filter(Boolean).length;
   const progressPercentage = Math.round((completedCells / totalCells) * 100);
 
+  const toggleMastered = (tableNum: number) => {
+    const newMastered = { ...masteredTables, [tableNum]: !masteredTables[tableNum] };
+    setMasteredTables(newMastered);
+    localStorage.setItem("masteredTables", JSON.stringify(newMastered));
+  };
+
   const resetProgress = () => {
     setProgress({});
+    setMasteredTables({});
     localStorage.removeItem("multiplicationProgress");
+    localStorage.removeItem("masteredTables");
   };
 
   return (
@@ -53,10 +66,22 @@ const Index = () => {
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
               <Card key={num} className="border-2 hover:shadow-lg transition-shadow">
-                <CardHeader className="bg-primary/5">
-                  <CardTitle className="text-2xl text-center text-primary">
-                    Таблица {num}
-                  </CardTitle>
+                <CardHeader className="bg-primary/5 relative">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-2xl text-center text-primary flex-1">
+                      Таблица {num}
+                    </CardTitle>
+                    <button
+                      onClick={() => toggleMastered(num)}
+                      className={`ml-2 p-2 rounded-full transition-all ${
+                        masteredTables[num]
+                          ? "bg-secondary text-white"
+                          : "bg-muted hover:bg-muted/80"
+                      }`}
+                    >
+                      <Icon name="Check" size={20} />
+                    </button>
+                  </div>
                 </CardHeader>
                 <CardContent className="pt-6 space-y-3">
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((multiplier) => {
@@ -107,27 +132,56 @@ const Index = () => {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => {
-                    const learned = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(
-                      (m) => progress[`${num}-${m}`]
-                    ).length;
-                    const percent = Math.round((learned / 9) * 100);
-                    return (
-                      <div
-                        key={num}
-                        className="p-4 rounded-lg border-2 text-center space-y-2"
-                      >
-                        <div className="text-2xl font-bold text-primary">
-                          Таблица {num}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-xl font-semibold mb-4 text-center">Выученные таблицы</h3>
+                    <div className="grid grid-cols-3 gap-3">
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                        <div
+                          key={num}
+                          onClick={() => toggleMastered(num)}
+                          className={`p-6 rounded-lg border-2 text-center cursor-pointer transition-all ${
+                            masteredTables[num]
+                              ? "bg-secondary text-white border-secondary"
+                              : "bg-muted/30 hover:bg-muted/50 border-border"
+                          }`}
+                        >
+                          <div className="text-3xl font-bold mb-2">
+                            {num}
+                          </div>
+                          {masteredTables[num] && (
+                            <Icon name="CheckCircle2" size={24} className="mx-auto" />
+                          )}
                         </div>
-                        <Progress value={percent} className="h-2" />
-                        <div className="text-sm text-muted-foreground">
-                          {learned}/9
-                        </div>
-                      </div>
-                    );
-                  })}
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-xl font-semibold mb-4 text-center">Детальный прогресс</h3>
+                    <div className="grid grid-cols-3 gap-4">
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => {
+                        const learned = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(
+                          (m) => progress[`${num}-${m}`]
+                        ).length;
+                        const percent = Math.round((learned / 9) * 100);
+                        return (
+                          <div
+                            key={num}
+                            className="p-4 rounded-lg border-2 text-center space-y-2"
+                          >
+                            <div className="text-2xl font-bold text-primary">
+                              Таблица {num}
+                            </div>
+                            <Progress value={percent} className="h-2" />
+                            <div className="text-sm text-muted-foreground">
+                              {learned}/9
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex justify-center pt-4">
