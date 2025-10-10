@@ -1,0 +1,32 @@
+{
+  "tests": [
+    {
+      "name": "Test OPTIONS for CORS",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Test math question",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "question": "Реши пример: 5 × 7"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "answer": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Test empty question",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "question": ""
+      },
+      "expectedStatus": 400
+    }
+  ]
+}

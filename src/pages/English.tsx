@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import Icon from "@/components/ui/icon";
 import { useNavigate } from "react-router-dom";
+import AIHelper from "@/components/AIHelper";
 
 const vocabularyData = [
   { russian: "Привет", english: "Hello", category: "Приветствия" },
@@ -59,6 +60,7 @@ const English = () => {
   const totalWords = vocabularyData.length;
   const learnedCount = Object.values(learnedWords).filter(Boolean).length;
   const progressPercentage = Math.round((learnedCount / totalWords) * 100);
+  const [aiQuestion, setAiQuestion] = useState<string | null>(null);
 
   const handleTestAnswer = () => {
     const currentWord = vocabularyData[currentWordIndex];
@@ -157,23 +159,37 @@ const English = () => {
                         return (
                           <div
                             key={index}
-                            onClick={() => toggleWord(word.russian, word.english)}
-                            className={`flex items-center justify-between p-4 rounded-lg cursor-pointer transition-all ${
+                            className={`flex items-center justify-between p-4 rounded-lg border-2 transition-all ${
                               isLearned
-                                ? "bg-secondary/20 border-2 border-secondary"
-                                : "bg-muted/30 hover:bg-muted/50 border-2 border-transparent"
+                                ? "bg-secondary/20 border-secondary"
+                                : "bg-muted/30 hover:bg-muted/50 border-transparent"
                             }`}
                           >
-                            <div className="flex flex-col gap-1">
+                            <div
+                              onClick={() => toggleWord(word.russian, word.english)}
+                              className="flex flex-col gap-1 flex-1 cursor-pointer"
+                            >
                               <span className="text-lg font-medium">{word.russian}</span>
                               <div className="flex items-center gap-2">
                                 <span className="text-sm text-muted-foreground">{word.english}</span>
                                 <Icon name="Volume2" size={16} className="text-primary" />
                               </div>
                             </div>
-                            {isLearned && (
-                              <Icon name="CheckCircle2" size={24} className="text-secondary" />
-                            )}
+                            <div className="flex items-center gap-2">
+                              {isLearned && (
+                                <Icon name="CheckCircle2" size={24} className="text-secondary" />
+                              )}
+                              <Button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setAiQuestion(`Объясни как запомнить слово "${word.russian}" - "${word.english}". Дай ассоциацию или способ запоминания.`);
+                                }}
+                                variant="ghost"
+                                size="sm"
+                              >
+                                <Icon name="Sparkles" size={18} className="text-primary" />
+                              </Button>
+                            </div>
                           </div>
                         );
                       })}
@@ -261,6 +277,14 @@ const English = () => {
               )}
             </CardContent>
           </Card>
+        )}
+
+        {aiQuestion && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="max-w-2xl w-full">
+              <AIHelper question={aiQuestion} onClose={() => setAiQuestion(null)} />
+            </div>
+          </div>
         )}
       </div>
     </div>
