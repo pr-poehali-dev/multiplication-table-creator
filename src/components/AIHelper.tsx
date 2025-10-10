@@ -30,6 +30,9 @@ const AIHelper = ({ question, onClose }: AIHelperProps) => {
       const data = await response.json();
 
       if (!response.ok) {
+        if (data.error === "API ключ не настроен") {
+          throw new Error("⚙️ Нужно добавить API ключ OpenAI в настройках проекта. Это бесплатно и занимает 2 минуты!");
+        }
         throw new Error(data.error || "Ошибка при получении ответа");
       }
 
