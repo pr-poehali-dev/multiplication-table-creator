@@ -65,10 +65,18 @@ const Index = () => {
           <Button
             onClick={() => navigate("/game")}
             variant="outline"
-            className="gap-2 bg-gradient-to-r from-purple-500/10 to-pink-500/10 hover:from-purple-500/20 hover:to-pink-500/20"
+            className="gap-2 bg-gradient-to-r from-blue-500/10 to-purple-500/10 hover:from-blue-500/20 hover:to-purple-500/20"
           >
             <Icon name="Gamepad2" size={20} />
-            Мини-игра
+            Математика
+          </Button>
+          <Button
+            onClick={() => navigate("/mixed-game")}
+            variant="outline"
+            className="gap-2 bg-gradient-to-r from-purple-500/10 to-pink-500/10 hover:from-purple-500/20 hover:to-pink-500/20"
+          >
+            <Icon name="Sparkles" size={20} />
+            Супер-игра
           </Button>
           <Button
             onClick={() => navigate("/english")}
