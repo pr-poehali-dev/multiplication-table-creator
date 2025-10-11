@@ -53,14 +53,14 @@ const Index = () => {
           <p className="text-lg text-muted-foreground">Изучай и отслеживай свой прогресс</p>
         </div>
 
-        <div className="flex justify-center gap-4 mb-8 flex-wrap">
+        <div className="flex justify-center gap-3 mb-8 flex-wrap">
           <Button
             onClick={() => setShowProgress(!showProgress)}
             variant={showProgress ? "default" : "outline"}
             className="gap-2"
           >
             <Icon name={showProgress ? "Grid3x3" : "BarChart3"} size={20} />
-            {showProgress ? "Таблица умножения" : "Отслеживание прогресса"}
+            {showProgress ? "Таблица" : "Прогресс"}
           </Button>
           <Button
             onClick={() => navigate("/game")}
@@ -68,7 +68,7 @@ const Index = () => {
             className="gap-2 bg-gradient-to-r from-blue-500/10 to-purple-500/10 hover:from-blue-500/20 hover:to-purple-500/20"
           >
             <Icon name="Gamepad2" size={20} />
-            Математика
+            Игра: Математика
           </Button>
           <Button
             onClick={() => navigate("/mixed-game")}
@@ -78,13 +78,29 @@ const Index = () => {
             <Icon name="Sparkles" size={20} />
             Супер-игра
           </Button>
+        </div>
+
+        <div className="flex justify-center gap-3 mb-8 flex-wrap">
           <Button
             onClick={() => navigate("/english")}
             variant="outline"
             className="gap-2"
           >
-            <Icon name="Languages" size={20} />
-            Английский язык
+            🇬🇧 Английский
+          </Button>
+          <Button
+            onClick={() => navigate("/chinese")}
+            variant="outline"
+            className="gap-2"
+          >
+            🇨🇳 Китайский
+          </Button>
+          <Button
+            onClick={() => navigate("/german")}
+            variant="outline"
+            className="gap-2"
+          >
+            🇩🇪 Немецкий
           </Button>
         </div>
 
