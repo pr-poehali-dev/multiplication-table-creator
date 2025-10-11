@@ -53,7 +53,7 @@ const Index = () => {
           <p className="text-lg text-muted-foreground">Изучай и отслеживай свой прогресс</p>
         </div>
 
-        <div className="flex justify-center gap-4 mb-8">
+        <div className="flex justify-center gap-4 mb-8 flex-wrap">
           <Button
             onClick={() => setShowProgress(!showProgress)}
             variant={showProgress ? "default" : "outline"}
@@ -61,6 +61,14 @@ const Index = () => {
           >
             <Icon name={showProgress ? "Grid3x3" : "BarChart3"} size={20} />
             {showProgress ? "Таблица умножения" : "Отслеживание прогресса"}
+          </Button>
+          <Button
+            onClick={() => navigate("/game")}
+            variant="outline"
+            className="gap-2 bg-gradient-to-r from-purple-500/10 to-pink-500/10 hover:from-purple-500/20 hover:to-pink-500/20"
+          >
+            <Icon name="Gamepad2" size={20} />
+            Мини-игра
           </Button>
           <Button
             onClick={() => navigate("/english")}
