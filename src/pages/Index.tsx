@@ -53,7 +53,7 @@ const Index = () => {
           <p className="text-lg text-muted-foreground">Изучай и отслеживай свой прогресс</p>
         </div>
 
-        <div className="flex justify-center gap-3 mb-8 flex-wrap">
+        <div className="flex justify-center gap-3 mb-4 flex-wrap">
           <Button
             onClick={() => setShowProgress(!showProgress)}
             variant={showProgress ? "default" : "outline"}
@@ -77,6 +77,14 @@ const Index = () => {
           >
             <Icon name="Sparkles" size={20} />
             Супер-игра
+          </Button>
+          <Button
+            onClick={() => navigate("/ultimate-game")}
+            variant="outline"
+            className="gap-2 bg-gradient-to-r from-orange-500/10 via-pink-500/10 to-purple-500/10 hover:from-orange-500/20 hover:via-pink-500/20 hover:to-purple-500/20 border-2 border-orange-500/50"
+          >
+            <Icon name="Rocket" size={20} />
+            Ультимативная игра 🌟
           </Button>
         </div>
 

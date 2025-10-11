@@ -10,6 +10,7 @@ import Chinese from "./pages/Chinese";
 import German from "./pages/German";
 import MultiplicationGame from "./pages/MultiplicationGame";
 import MixedGame from "./pages/MixedGame";
+import UltimateGame from "./pages/UltimateGame";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,6 +28,7 @@ const App = () => (
           <Route path="/german" element={<German />} />
           <Route path="/game" element={<MultiplicationGame />} />
           <Route path="/mixed-game" element={<MixedGame />} />
+          <Route path="/ultimate-game" element={<UltimateGame />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
