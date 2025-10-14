@@ -13,6 +13,7 @@ import MultiplicationGame from "./pages/MultiplicationGame";
 import MixedGame from "./pages/MixedGame";
 import UltimateGame from "./pages/UltimateGame";
 import AIWriter from "./pages/AIWriter";
+import MinecraftGame from "./pages/MinecraftGame";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +34,7 @@ const App = () => (
           <Route path="/mixed-game" element={<MixedGame />} />
           <Route path="/ultimate-game" element={<UltimateGame />} />
           <Route path="/ai-writer" element={<AIWriter />} />
+          <Route path="/minecraft" element={<MinecraftGame />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

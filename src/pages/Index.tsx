@@ -119,7 +119,7 @@ const Index = () => {
           </Button>
         </div>
 
-        <div className="flex justify-center mb-8">
+        <div className="flex justify-center gap-4 mb-8 flex-wrap">
           <Button
             onClick={() => navigate("/ai-writer")}
             variant="outline"
@@ -127,6 +127,14 @@ const Index = () => {
           >
             <Icon name="Sparkles" size={24} />
             AI Помощник - Генерация текстов 🤖
+          </Button>
+          <Button
+            onClick={() => navigate("/minecraft")}
+            variant="outline"
+            className="gap-2 bg-gradient-to-r from-green-500/10 to-emerald-500/10 hover:from-green-500/20 hover:to-emerald-500/20 border-2 border-green-500/50 text-lg px-6 py-6"
+          >
+            <Icon name="Blocks" size={24} />
+            Minecraft Обучающий ⛏️
           </Button>
         </div>
 
