@@ -9,7 +9,7 @@ interface Block {
   x: number;
   y: number;
   z: number;
-  type: "cobblestone" | "grass" | "dirt" | "stone";
+  type: "grass" | "dirt" | "stone" | "cobblestone";
 }
 
 interface Player {
@@ -33,7 +33,6 @@ interface TouchControl {
 const MinecraftGame = () => {
   const navigate = useNavigate();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const glRef = useRef<WebGLRenderingContext | null>(null);
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [playerPos, setPlayerPos] = useState({ x: 0, y: 2.7, z: 8 });
   const [playerRot, setPlayerRot] = useState({ yaw: 0, pitch: 0 });
@@ -71,16 +70,70 @@ const MinecraftGame = () => {
     for (let x = -15; x <= 15; x++) {
       for (let z = -15; z <= 15; z++) {
         groundBlocks.push({ x, y: 0, z, type: "grass" });
-        if (Math.random() > 0.7) {
-          const height = Math.floor(Math.random() * 3) + 1;
+        if (Math.random() > 0.8) {
+          const height = Math.floor(Math.random() * 2) + 1;
           for (let h = 1; h <= height; h++) {
-            groundBlocks.push({ x, y: h, z, type: "dirt" });
+            groundBlocks.push({ x, y: h, z, type: Math.random() > 0.5 ? "dirt" : "stone" });
           }
         }
       }
     }
     setBlocks(groundBlocks);
   }, []);
+
+  const createTexture = (type: Block["type"], face: 'top' | 'side' | 'bottom') => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 16;
+    canvas.height = 16;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return canvas;
+
+    if (type === "grass") {
+      if (face === "top") {
+        ctx.fillStyle = "#5DA847";
+        ctx.fillRect(0, 0, 16, 16);
+        for (let i = 0; i < 40; i++) {
+          ctx.fillStyle = Math.random() > 0.5 ? "#4A9C3A" : "#6FB857";
+          ctx.fillRect(Math.random() * 16, Math.random() * 16, 1, 1);
+        }
+      } else {
+        ctx.fillStyle = "#8B6914";
+        ctx.fillRect(0, 0, 16, 16);
+        ctx.fillStyle = "#5DA847";
+        ctx.fillRect(0, 0, 16, 2);
+      }
+    } else if (type === "dirt") {
+      ctx.fillStyle = "#8B6914";
+      ctx.fillRect(0, 0, 16, 16);
+      for (let i = 0; i < 40; i++) {
+        ctx.fillStyle = Math.random() > 0.5 ? "#6B4E0A" : "#AB8520";
+        ctx.fillRect(Math.random() * 16, Math.random() * 16, 2, 2);
+      }
+    } else if (type === "stone") {
+      ctx.fillStyle = "#7A7A7A";
+      ctx.fillRect(0, 0, 16, 16);
+      for (let i = 0; i < 50; i++) {
+        ctx.fillStyle = Math.random() > 0.5 ? "#5A5A5A" : "#9A9A9A";
+        ctx.fillRect(Math.random() * 16, Math.random() * 16, 1, 1);
+      }
+    } else if (type === "cobblestone") {
+      ctx.fillStyle = "#808080";
+      ctx.fillRect(0, 0, 16, 16);
+      for (let i = 0; i < 20; i++) {
+        ctx.fillStyle = Math.random() > 0.5 ? "#606060" : "#A0A0A0";
+        const x = Math.random() * 12;
+        const y = Math.random() * 12;
+        ctx.fillRect(x, y, 3, 3);
+      }
+      ctx.strokeStyle = "#404040";
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 5; i++) {
+        ctx.strokeRect(Math.random() * 12, Math.random() * 12, 3, 3);
+      }
+    }
+    
+    return canvas;
+  };
 
   useEffect(() => {
     if (!showMathQuiz && !isPaused) {
@@ -435,204 +488,243 @@ const MinecraftGame = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const gl = canvas.getContext("webgl", { antialias: true, alpha: false });
-    if (!gl) {
-      console.error("WebGL not supported");
-      return;
-    }
-    glRef.current = gl;
-
-    const vertexShaderSource = `
-      attribute vec3 position;
-      attribute vec3 normal;
-      attribute vec3 color;
-      
-      uniform mat4 modelViewMatrix;
-      uniform mat4 projectionMatrix;
-      
-      varying vec3 vColor;
-      varying vec3 vNormal;
-      varying vec3 vPosition;
-      
-      void main() {
-        vColor = color;
-        vNormal = normal;
-        vPosition = position;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `;
-
-    const fragmentShaderSource = `
-      precision mediump float;
-      
-      varying vec3 vColor;
-      varying vec3 vNormal;
-      varying vec3 vPosition;
-      
-      void main() {
-        vec3 lightDir = normalize(vec3(0.5, 1.0, 0.3));
-        float diffuse = max(dot(vNormal, lightDir), 0.3);
-        
-        float fog = 1.0 - clamp(length(vPosition) / 30.0, 0.0, 0.7);
-        vec3 finalColor = vColor * diffuse * fog + vec3(0.7, 0.85, 1.0) * (1.0 - fog);
-        
-        gl_FragColor = vec4(finalColor, 1.0);
-      }
-    `;
-
-    const vertexShader = gl.createShader(gl.VERTEX_SHADER)!;
-    gl.shaderSource(vertexShader, vertexShaderSource);
-    gl.compileShader(vertexShader);
-
-    const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER)!;
-    gl.shaderSource(fragmentShader, fragmentShaderSource);
-    gl.compileShader(fragmentShader);
-
-    const program = gl.createProgram()!;
-    gl.attachShader(program, vertexShader);
-    gl.attachShader(program, fragmentShader);
-    gl.linkProgram(program);
-    gl.useProgram(program);
-
-    const positionLocation = gl.getAttribLocation(program, "position");
-    const normalLocation = gl.getAttribLocation(program, "normal");
-    const colorLocation = gl.getAttribLocation(program, "color");
-    const modelViewMatrixLocation = gl.getUniformLocation(program, "modelViewMatrix");
-    const projectionMatrixLocation = gl.getUniformLocation(program, "projectionMatrix");
-
-    gl.enable(gl.DEPTH_TEST);
-    gl.enable(gl.CULL_FACE);
-
-    const getBlockColor = (type: Block["type"], face: string): [number, number, number] => {
-      const colors = {
-        grass: { top: [0.4, 0.8, 0.2], side: [0.5, 0.6, 0.3], bottom: [0.4, 0.3, 0.2] },
-        dirt: { top: [0.5, 0.35, 0.2], side: [0.5, 0.35, 0.2], bottom: [0.5, 0.35, 0.2] },
-        stone: { top: [0.5, 0.5, 0.5], side: [0.5, 0.5, 0.5], bottom: [0.5, 0.5, 0.5] },
-        cobblestone: { top: [0.6, 0.6, 0.6], side: [0.6, 0.6, 0.6], bottom: [0.6, 0.6, 0.6] },
-      };
-      return colors[type][face as keyof typeof colors.grass] as [number, number, number];
-    };
-
-    const createCubeMesh = (block: Block) => {
-      const { x, y, z, type } = block;
-      const vertices: number[] = [];
-      const normals: number[] = [];
-      const colors: number[] = [];
-
-      const faces = [
-        { pos: [[0,1,1], [1,1,1], [1,1,0], [0,1,0]], normal: [0,1,0], name: "top" },
-        { pos: [[0,0,0], [1,0,0], [1,0,1], [0,0,1]], normal: [0,-1,0], name: "bottom" },
-        { pos: [[0,0,1], [1,0,1], [1,1,1], [0,1,1]], normal: [0,0,1], name: "side" },
-        { pos: [[1,0,0], [0,0,0], [0,1,0], [1,1,0]], normal: [0,0,-1], name: "side" },
-        { pos: [[1,0,1], [1,0,0], [1,1,0], [1,1,1]], normal: [1,0,0], name: "side" },
-        { pos: [[0,0,0], [0,0,1], [0,1,1], [0,1,0]], normal: [-1,0,0], name: "side" },
-      ];
-
-      faces.forEach(face => {
-        const [p1, p2, p3, p4] = face.pos;
-        const color = getBlockColor(type, face.name);
-        
-        [p1, p2, p3, p1, p3, p4].forEach(p => {
-          vertices.push(x + p[0] - 0.5, y + p[1] - 0.5, z + p[2] - 0.5);
-          normals.push(...face.normal);
-          colors.push(...color);
-        });
-      });
-
-      return { vertices, normals, colors };
-    };
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
     const render = () => {
-      gl.clearColor(0.53, 0.81, 0.92, 1.0);
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      gradient.addColorStop(0, "#6BB6FF");
+      gradient.addColorStop(0.5, "#87CEEB");
+      gradient.addColorStop(1, "#B0D9F5");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      const fov = 75 * Math.PI / 180;
-      const aspect = canvas.width / canvas.height;
-      const near = 0.1;
-      const far = 100;
-      const f = 1.0 / Math.tan(fov / 2);
+      const sunX = canvas.width * 0.8;
+      const sunY = canvas.height * 0.15;
+      const sunGradient = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, 60);
+      sunGradient.addColorStop(0, "#FFFFA0");
+      sunGradient.addColorStop(0.5, "#FFFF80");
+      sunGradient.addColorStop(1, "rgba(255, 255, 160, 0)");
+      ctx.fillStyle = sunGradient;
+      ctx.beginPath();
+      ctx.arc(sunX, sunY, 60, 0, Math.PI * 2);
+      ctx.fill();
 
-      const projectionMatrix = new Float32Array([
-        f / aspect, 0, 0, 0,
-        0, f, 0, 0,
-        0, 0, (far + near) / (near - far), -1,
-        0, 0, (2 * far * near) / (near - far), 0
-      ]);
+      for (let i = 0; i < 8; i++) {
+        const cloudX = ((canvas.width / 8) * i + (Date.now() / 100)) % canvas.width;
+        const cloudY = canvas.height * 0.2 + Math.sin(i) * 30;
+        ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+        ctx.beginPath();
+        ctx.arc(cloudX, cloudY, 30, 0, Math.PI * 2);
+        ctx.arc(cloudX + 25, cloudY, 35, 0, Math.PI * 2);
+        ctx.arc(cloudX + 50, cloudY, 30, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
-      const cam = {
-        x: playerPos.x,
-        y: playerPos.y,
-        z: playerPos.z
-      };
-
-      const viewMatrix = new Float32Array(16);
-      const sy = Math.sin(playerRot.yaw);
-      const cy = Math.cos(playerRot.yaw);
-      const sp = Math.sin(playerRot.pitch);
-      const cp = Math.cos(playerRot.pitch);
-
-      viewMatrix[0] = cy; viewMatrix[1] = sy * sp; viewMatrix[2] = sy * cp; viewMatrix[3] = 0;
-      viewMatrix[4] = 0; viewMatrix[5] = cp; viewMatrix[6] = -sp; viewMatrix[7] = 0;
-      viewMatrix[8] = -sy; viewMatrix[9] = cy * sp; viewMatrix[10] = cy * cp; viewMatrix[11] = 0;
-      viewMatrix[12] = cam.x * cy - cam.z * sy;
-      viewMatrix[13] = cam.x * sy * sp + cam.y * cp - cam.z * cy * sp;
-      viewMatrix[14] = cam.x * sy * cp - cam.y * sp - cam.z * cy * cp;
-      viewMatrix[15] = 1;
-
-      gl.uniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix);
-      gl.uniformMatrix4fv(modelViewMatrixLocation, false, viewMatrix);
-
-      const visibleBlocks = [...blocks];
+      const allBlocks = [...blocks];
       
       otherPlayers.forEach((player) => {
-        visibleBlocks.push({
+        allBlocks.push({
           x: Math.floor(player.x),
-          y: Math.floor(player.y),
-          z: Math.floor(player.z),
-          type: "stone"
-        });
-        visibleBlocks.push({
-          x: Math.floor(player.x),
-          y: Math.floor(player.y) + 1,
+          y: Math.floor(player.y + 0.5),
           z: Math.floor(player.z),
           type: "stone"
         });
       });
 
-      visibleBlocks.forEach(block => {
-        const mesh = createCubeMesh(block);
+      const visibleFaces = allBlocks.flatMap((block) => {
+        const dx = block.x + 0.5 - playerPos.x;
+        const dy = block.y + 0.5 - playerPos.y;
+        const dz = block.z + 0.5 - playerPos.z;
 
-        const positionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mesh.vertices), gl.STATIC_DRAW);
-        gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(positionLocation);
+        const rotX = dx * Math.cos(playerRot.yaw) - dz * Math.sin(playerRot.yaw);
+        const rotZ = dx * Math.sin(playerRot.yaw) + dz * Math.cos(playerRot.yaw);
+        const rotY = dy * Math.cos(playerRot.pitch) - rotZ * Math.sin(playerRot.pitch);
+        const finalZ = dy * Math.sin(playerRot.pitch) + rotZ * Math.cos(playerRot.pitch);
 
-        const normalBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mesh.normals), gl.STATIC_DRAW);
-        gl.vertexAttribPointer(normalLocation, 3, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(normalLocation);
+        if (finalZ <= 0.1) return [];
 
-        const colorBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mesh.colors), gl.STATIC_DRAW);
-        gl.vertexAttribPointer(colorLocation, 3, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(colorLocation);
+        const scale = 400 / finalZ;
+        const centerX = canvas.width / 2 + rotX * scale;
+        const centerY = canvas.height / 2 - rotY * scale;
+        const size = BLOCK_SIZE * scale;
 
-        gl.drawArrays(gl.TRIANGLES, 0, mesh.vertices.length / 3);
+        const isPlayerBlock = otherPlayers.some(p => 
+          Math.floor(p.x) === block.x && 
+          Math.floor(p.y + 0.5) === block.y && 
+          Math.floor(p.z) === block.z
+        );
+
+        const faces = [];
+        
+        const hasBlockAbove = allBlocks.some(b => b.x === block.x && b.y === block.y + 1 && b.z === block.z);
+        const hasBlockBelow = allBlocks.some(b => b.x === block.x && b.y === block.y - 1 && b.z === block.z);
+        const hasBlockFront = allBlocks.some(b => b.x === block.x && b.y === block.y && b.z === block.z - 1);
+        const hasBlockBack = allBlocks.some(b => b.x === block.x && b.y === block.y && b.z === block.z + 1);
+        const hasBlockLeft = allBlocks.some(b => b.x === block.x - 1 && b.y === block.y && b.z === block.z);
+        const hasBlockRight = allBlocks.some(b => b.x === block.x + 1 && b.y === block.y && b.z === block.z);
+
+        const faceSize = size * 0.5;
+        
+        if (!hasBlockAbove && rotY < 0) {
+          faces.push({
+            type: 'top',
+            z: finalZ,
+            points: [
+              { x: centerX - faceSize, y: centerY - faceSize },
+              { x: centerX + faceSize, y: centerY - faceSize },
+              { x: centerX + faceSize, y: centerY },
+              { x: centerX - faceSize, y: centerY }
+            ],
+            brightness: 1,
+            blockType: block.type,
+            isPlayer: isPlayerBlock,
+            face: 'top' as const
+          });
+        }
+        
+        if (!hasBlockBelow && rotY > 0) {
+          faces.push({
+            type: 'bottom',
+            z: finalZ,
+            points: [
+              { x: centerX - faceSize, y: centerY },
+              { x: centerX + faceSize, y: centerY },
+              { x: centerX + faceSize, y: centerY + faceSize },
+              { x: centerX - faceSize, y: centerY + faceSize }
+            ],
+            brightness: 0.5,
+            blockType: block.type,
+            isPlayer: isPlayerBlock,
+            face: 'bottom' as const
+          });
+        }
+        
+        if (!hasBlockFront && rotZ > 0) {
+          faces.push({
+            type: 'front',
+            z: finalZ,
+            points: [
+              { x: centerX - faceSize, y: centerY - faceSize },
+              { x: centerX + faceSize, y: centerY - faceSize },
+              { x: centerX + faceSize, y: centerY + faceSize },
+              { x: centerX - faceSize, y: centerY + faceSize }
+            ],
+            brightness: 0.8,
+            blockType: block.type,
+            isPlayer: isPlayerBlock,
+            face: 'side' as const
+          });
+        }
+        
+        if (!hasBlockBack && rotZ < 0) {
+          faces.push({
+            type: 'back',
+            z: finalZ,
+            points: [
+              { x: centerX - faceSize, y: centerY - faceSize },
+              { x: centerX + faceSize, y: centerY - faceSize },
+              { x: centerX + faceSize, y: centerY + faceSize },
+              { x: centerX - faceSize, y: centerY + faceSize }
+            ],
+            brightness: 0.6,
+            blockType: block.type,
+            isPlayer: isPlayerBlock,
+            face: 'side' as const
+          });
+        }
+        
+        if (!hasBlockLeft && rotX < 0) {
+          faces.push({
+            type: 'left',
+            z: finalZ,
+            points: [
+              { x: centerX - faceSize, y: centerY - faceSize },
+              { x: centerX, y: centerY - faceSize * 0.7 },
+              { x: centerX, y: centerY + faceSize * 0.7 },
+              { x: centerX - faceSize, y: centerY + faceSize }
+            ],
+            brightness: 0.7,
+            blockType: block.type,
+            isPlayer: isPlayerBlock,
+            face: 'side' as const
+          });
+        }
+        
+        if (!hasBlockRight && rotX > 0) {
+          faces.push({
+            type: 'right',
+            z: finalZ,
+            points: [
+              { x: centerX, y: centerY - faceSize * 0.7 },
+              { x: centerX + faceSize, y: centerY - faceSize },
+              { x: centerX + faceSize, y: centerY + faceSize },
+              { x: centerX, y: centerY + faceSize * 0.7 }
+            ],
+            brightness: 0.7,
+            blockType: block.type,
+            isPlayer: isPlayerBlock,
+            face: 'side' as const
+          });
+        }
+
+        return faces;
       });
 
-      requestAnimationFrame(render);
+      visibleFaces.sort((a, b) => b.z - a.z);
+
+      visibleFaces.forEach((face) => {
+        const texture = createTexture(face.blockType, face.face);
+        
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(face.points[0].x, face.points[0].y);
+        face.points.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
+        ctx.closePath();
+        ctx.clip();
+
+        const pattern = ctx.createPattern(texture, 'repeat');
+        if (pattern) {
+          ctx.fillStyle = pattern;
+          ctx.fill();
+        }
+        
+        if (face.isPlayer) {
+          ctx.fillStyle = `rgba(255, 100, 100, ${0.5 * face.brightness})`;
+        } else {
+          ctx.fillStyle = `rgba(0, 0, 0, ${(1 - face.brightness) * 0.4})`;
+        }
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        ctx.restore();
+      });
+
+      ctx.strokeStyle = "#FFFFFF";
+      ctx.lineWidth = 3;
+      ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+      ctx.shadowBlur = 4;
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      const crosshairSize = 15;
+      ctx.beginPath();
+      ctx.moveTo(centerX - crosshairSize, centerY);
+      ctx.lineTo(centerX + crosshairSize, centerY);
+      ctx.moveTo(centerX, centerY - crosshairSize);
+      ctx.lineTo(centerX, centerY + crosshairSize);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
     };
 
-    render();
+    const animationFrame = requestAnimationFrame(function animate() {
+      render();
+      requestAnimationFrame(animate);
+    });
 
-    return () => {
-      if (gl) {
-        gl.getExtension('WEBGL_lose_context')?.loseContext();
-      }
-    };
+    return () => cancelAnimationFrame(animationFrame);
   }, [blocks, playerPos, playerRot, otherPlayers]);
 
   const handleTouchStart = (e: React.TouchEvent, isLeft: boolean) => {
@@ -876,7 +968,7 @@ const MinecraftGame = () => {
           <div className="mt-4 text-center text-xs md:text-sm text-gray-600">
             <p>Блоков: {blocks.length} | Позиция: X:{playerPos.x.toFixed(1)} Y:{playerPos.y.toFixed(1)} Z:{playerPos.z.toFixed(1)}</p>
             {isOnline && <p className="text-green-600 font-bold">🌐 Онлайн игроков: {otherPlayers.length + 1}</p>}
-            <p className="text-blue-600 font-bold">Выбранный блок: {selectedBlock === "cobblestone" ? "Булыжник" : selectedBlock === "grass" ? "Трава" : selectedBlock === "dirt" ? "Земля" : "Камень"}</p>
+            <p className="text-blue-600 font-bold">📦 Выбранный блок: {selectedBlock === "cobblestone" ? "Булыжник" : selectedBlock === "grass" ? "Трава" : selectedBlock === "dirt" ? "Земля" : "Камень"}</p>
           </div>
         </Card>
       </div>
