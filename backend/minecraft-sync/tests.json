@@ -1,0 +1,63 @@
+{
+  "tests": [
+    {
+      "name": "Create room",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "create",
+        "roomCode": "TEST01",
+        "playerId": "player1",
+        "playerName": "TestPlayer",
+        "x": 0,
+        "y": 1.7,
+        "z": 5,
+        "yaw": 0,
+        "pitch": 0
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "roomCode": "TEST01"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Join existing room",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "join",
+        "roomCode": "TEST01",
+        "playerId": "player2",
+        "playerName": "Player2",
+        "x": 1,
+        "y": 1.7,
+        "z": 6,
+        "yaw": 0,
+        "pitch": 0
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Update player position",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "update",
+        "roomCode": "TEST01",
+        "playerId": "player1",
+        "x": 2.5,
+        "y": 1.7,
+        "z": 7.3,
+        "yaw": 1.5,
+        "pitch": 0.2
+      },
+      "expectedStatus": 200
+    }
+  ]
+}
