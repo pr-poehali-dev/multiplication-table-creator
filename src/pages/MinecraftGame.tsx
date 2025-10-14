@@ -9,7 +9,7 @@ interface Block {
   x: number;
   y: number;
   z: number;
-  type: "cobblestone";
+  type: "cobblestone" | "grass" | "dirt" | "stone";
 }
 
 interface Player {
@@ -33,8 +33,9 @@ interface TouchControl {
 const MinecraftGame = () => {
   const navigate = useNavigate();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const glRef = useRef<WebGLRenderingContext | null>(null);
   const [blocks, setBlocks] = useState<Block[]>([]);
-  const [playerPos, setPlayerPos] = useState({ x: 0, y: 1.7, z: 5 });
+  const [playerPos, setPlayerPos] = useState({ x: 0, y: 2.7, z: 8 });
   const [playerRot, setPlayerRot] = useState({ yaw: 0, pitch: 0 });
   const [keys, setKeys] = useState<Set<string>>(new Set());
   const [isPointerLocked, setIsPointerLocked] = useState(false);
@@ -54,6 +55,7 @@ const MinecraftGame = () => {
   const [showJoinRoom, setShowJoinRoom] = useState(false);
   const [otherPlayers, setOtherPlayers] = useState<Player[]>([]);
   const [myPlayerId, setMyPlayerId] = useState("");
+  const [selectedBlock, setSelectedBlock] = useState<Block["type"]>("cobblestone");
   
   const syncIntervalRef = useRef<NodeJS.Timeout>();
 
@@ -66,9 +68,15 @@ const MinecraftGame = () => {
 
   useEffect(() => {
     const groundBlocks: Block[] = [];
-    for (let x = -10; x <= 10; x++) {
-      for (let z = -10; z <= 10; z++) {
-        groundBlocks.push({ x, y: 0, z, type: "cobblestone" });
+    for (let x = -15; x <= 15; x++) {
+      for (let z = -15; z <= 15; z++) {
+        groundBlocks.push({ x, y: 0, z, type: "grass" });
+        if (Math.random() > 0.7) {
+          const height = Math.floor(Math.random() * 3) + 1;
+          for (let h = 1; h <= height; h++) {
+            groundBlocks.push({ x, y: h, z, type: "dirt" });
+          }
+        }
       }
     }
     setBlocks(groundBlocks);
@@ -220,7 +228,7 @@ const MinecraftGame = () => {
     if (!isOnline) return;
     
     try {
-      await fetch("https://functions.poehali.dev/d99a52d9-5d5b-4c20-85a3-6c8ea3e0a6b4", {
+      await fetch("https://functions.poehali.dev/9efa54f8-c221-4210-b84c-430ee21c3978", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -246,6 +254,10 @@ const MinecraftGame = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       setKeys((prev) => new Set(prev).add(e.key.toLowerCase()));
+      if (e.key >= "1" && e.key <= "4") {
+        const types: Block["type"][] = ["cobblestone", "grass", "dirt", "stone"];
+        setSelectedBlock(types[parseInt(e.key) - 1]);
+      }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
       setKeys((prev) => {
@@ -361,7 +373,7 @@ const MinecraftGame = () => {
         e.preventDefault();
         const placePos = raycast(false);
         if (placePos) {
-          const newBlock = { ...placePos, type: "cobblestone" as const };
+          const newBlock = { ...placePos, type: selectedBlock };
           setBlocks((prev) => [...prev, newBlock]);
           syncBlock(newBlock, "add");
         }
@@ -377,7 +389,7 @@ const MinecraftGame = () => {
       window.removeEventListener("mousedown", handleClick);
       window.removeEventListener("contextmenu", (e) => e.preventDefault());
     };
-  }, [isPointerLocked, blocks, playerPos, playerRot, isPaused, isMobile]);
+  }, [isPointerLocked, blocks, playerPos, playerRot, isPaused, isMobile, selectedBlock]);
 
   const handleMobileBreak = () => {
     const hitBlock = raycast(true);
@@ -390,7 +402,7 @@ const MinecraftGame = () => {
   const handleMobilePlace = () => {
     const placePos = raycast(false);
     if (placePos) {
-      const newBlock = { ...placePos, type: "cobblestone" as const };
+      const newBlock = { ...placePos, type: selectedBlock };
       setBlocks((prev) => [...prev, newBlock]);
       syncBlock(newBlock, "add");
     }
@@ -423,87 +435,204 @@ const MinecraftGame = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    const gl = canvas.getContext("webgl", { antialias: true, alpha: false });
+    if (!gl) {
+      console.error("WebGL not supported");
+      return;
+    }
+    glRef.current = gl;
 
-    const render = () => {
-      ctx.fillStyle = "#87CEEB";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      ctx.fillStyle = "#90EE90";
-      ctx.fillRect(0, canvas.height / 2, canvas.width, canvas.height / 2);
-
-      const allBlocks = [...blocks];
+    const vertexShaderSource = `
+      attribute vec3 position;
+      attribute vec3 normal;
+      attribute vec3 color;
       
-      otherPlayers.forEach((player) => {
-        const headBlock = {
-          x: Math.floor(player.x),
-          y: Math.floor(player.y + 0.5),
-          z: Math.floor(player.z),
-          type: "cobblestone" as const
-        };
-        allBlocks.push(headBlock);
-      });
+      uniform mat4 modelViewMatrix;
+      uniform mat4 projectionMatrix;
+      
+      varying vec3 vColor;
+      varying vec3 vNormal;
+      varying vec3 vPosition;
+      
+      void main() {
+        vColor = color;
+        vNormal = normal;
+        vPosition = position;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `;
 
-      const visibleBlocks = allBlocks
-        .map((block) => {
-          const dx = block.x - playerPos.x;
-          const dy = block.y - playerPos.y;
-          const dz = block.z - playerPos.z;
+    const fragmentShaderSource = `
+      precision mediump float;
+      
+      varying vec3 vColor;
+      varying vec3 vNormal;
+      varying vec3 vPosition;
+      
+      void main() {
+        vec3 lightDir = normalize(vec3(0.5, 1.0, 0.3));
+        float diffuse = max(dot(vNormal, lightDir), 0.3);
+        
+        float fog = 1.0 - clamp(length(vPosition) / 30.0, 0.0, 0.7);
+        vec3 finalColor = vColor * diffuse * fog + vec3(0.7, 0.85, 1.0) * (1.0 - fog);
+        
+        gl_FragColor = vec4(finalColor, 1.0);
+      }
+    `;
 
-          const rotX = dx * Math.cos(playerRot.yaw) - dz * Math.sin(playerRot.yaw);
-          const rotZ = dx * Math.sin(playerRot.yaw) + dz * Math.cos(playerRot.yaw);
-          const rotY = dy * Math.cos(playerRot.pitch) - rotZ * Math.sin(playerRot.pitch);
-          const finalZ = dy * Math.sin(playerRot.pitch) + rotZ * Math.cos(playerRot.pitch);
+    const vertexShader = gl.createShader(gl.VERTEX_SHADER)!;
+    gl.shaderSource(vertexShader, vertexShaderSource);
+    gl.compileShader(vertexShader);
 
-          if (finalZ <= 0.1) return null;
+    const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER)!;
+    gl.shaderSource(fragmentShader, fragmentShaderSource);
+    gl.compileShader(fragmentShader);
 
-          const scale = 400 / finalZ;
-          const screenX = canvas.width / 2 + rotX * scale;
-          const screenY = canvas.height / 2 - rotY * scale;
-          const size = BLOCK_SIZE * scale;
+    const program = gl.createProgram()!;
+    gl.attachShader(program, vertexShader);
+    gl.attachShader(program, fragmentShader);
+    gl.linkProgram(program);
+    gl.useProgram(program);
 
-          return { screenX, screenY, size, finalZ, block };
-        })
-        .filter((b) => b !== null)
-        .sort((a, b) => b!.finalZ - a!.finalZ);
+    const positionLocation = gl.getAttribLocation(program, "position");
+    const normalLocation = gl.getAttribLocation(program, "normal");
+    const colorLocation = gl.getAttribLocation(program, "color");
+    const modelViewMatrixLocation = gl.getUniformLocation(program, "modelViewMatrix");
+    const projectionMatrixLocation = gl.getUniformLocation(program, "projectionMatrix");
 
-      visibleBlocks.forEach((item) => {
-        if (!item) return;
-        const { screenX, screenY, size, block } = item;
+    gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.CULL_FACE);
 
-        const isPlayerBlock = otherPlayers.some(p => 
-          Math.floor(p.x) === block.x && 
-          Math.floor(p.y + 0.5) === block.y && 
-          Math.floor(p.z) === block.z
-        );
-
-        ctx.fillStyle = isPlayerBlock ? "#FF6B6B" : "#808080";
-        ctx.fillRect(screenX - size / 2, screenY - size / 2, size, size);
-        ctx.strokeStyle = isPlayerBlock ? "#FF0000" : "#555555";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(screenX - size / 2, screenY - size / 2, size, size);
-      });
-
-      ctx.strokeStyle = "#FFFFFF";
-      ctx.lineWidth = 3;
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      const crosshairSize = 15;
-      ctx.beginPath();
-      ctx.moveTo(centerX - crosshairSize, centerY);
-      ctx.lineTo(centerX + crosshairSize, centerY);
-      ctx.moveTo(centerX, centerY - crosshairSize);
-      ctx.lineTo(centerX, centerY + crosshairSize);
-      ctx.stroke();
+    const getBlockColor = (type: Block["type"], face: string): [number, number, number] => {
+      const colors = {
+        grass: { top: [0.4, 0.8, 0.2], side: [0.5, 0.6, 0.3], bottom: [0.4, 0.3, 0.2] },
+        dirt: { top: [0.5, 0.35, 0.2], side: [0.5, 0.35, 0.2], bottom: [0.5, 0.35, 0.2] },
+        stone: { top: [0.5, 0.5, 0.5], side: [0.5, 0.5, 0.5], bottom: [0.5, 0.5, 0.5] },
+        cobblestone: { top: [0.6, 0.6, 0.6], side: [0.6, 0.6, 0.6], bottom: [0.6, 0.6, 0.6] },
+      };
+      return colors[type][face as keyof typeof colors.grass] as [number, number, number];
     };
 
-    const animationFrame = requestAnimationFrame(function animate() {
-      render();
-      requestAnimationFrame(animate);
-    });
+    const createCubeMesh = (block: Block) => {
+      const { x, y, z, type } = block;
+      const vertices: number[] = [];
+      const normals: number[] = [];
+      const colors: number[] = [];
 
-    return () => cancelAnimationFrame(animationFrame);
+      const faces = [
+        { pos: [[0,1,1], [1,1,1], [1,1,0], [0,1,0]], normal: [0,1,0], name: "top" },
+        { pos: [[0,0,0], [1,0,0], [1,0,1], [0,0,1]], normal: [0,-1,0], name: "bottom" },
+        { pos: [[0,0,1], [1,0,1], [1,1,1], [0,1,1]], normal: [0,0,1], name: "side" },
+        { pos: [[1,0,0], [0,0,0], [0,1,0], [1,1,0]], normal: [0,0,-1], name: "side" },
+        { pos: [[1,0,1], [1,0,0], [1,1,0], [1,1,1]], normal: [1,0,0], name: "side" },
+        { pos: [[0,0,0], [0,0,1], [0,1,1], [0,1,0]], normal: [-1,0,0], name: "side" },
+      ];
+
+      faces.forEach(face => {
+        const [p1, p2, p3, p4] = face.pos;
+        const color = getBlockColor(type, face.name);
+        
+        [p1, p2, p3, p1, p3, p4].forEach(p => {
+          vertices.push(x + p[0] - 0.5, y + p[1] - 0.5, z + p[2] - 0.5);
+          normals.push(...face.normal);
+          colors.push(...color);
+        });
+      });
+
+      return { vertices, normals, colors };
+    };
+
+    const render = () => {
+      gl.clearColor(0.53, 0.81, 0.92, 1.0);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      const fov = 75 * Math.PI / 180;
+      const aspect = canvas.width / canvas.height;
+      const near = 0.1;
+      const far = 100;
+      const f = 1.0 / Math.tan(fov / 2);
+
+      const projectionMatrix = new Float32Array([
+        f / aspect, 0, 0, 0,
+        0, f, 0, 0,
+        0, 0, (far + near) / (near - far), -1,
+        0, 0, (2 * far * near) / (near - far), 0
+      ]);
+
+      const cam = {
+        x: playerPos.x,
+        y: playerPos.y,
+        z: playerPos.z
+      };
+
+      const viewMatrix = new Float32Array(16);
+      const sy = Math.sin(playerRot.yaw);
+      const cy = Math.cos(playerRot.yaw);
+      const sp = Math.sin(playerRot.pitch);
+      const cp = Math.cos(playerRot.pitch);
+
+      viewMatrix[0] = cy; viewMatrix[1] = sy * sp; viewMatrix[2] = sy * cp; viewMatrix[3] = 0;
+      viewMatrix[4] = 0; viewMatrix[5] = cp; viewMatrix[6] = -sp; viewMatrix[7] = 0;
+      viewMatrix[8] = -sy; viewMatrix[9] = cy * sp; viewMatrix[10] = cy * cp; viewMatrix[11] = 0;
+      viewMatrix[12] = cam.x * cy - cam.z * sy;
+      viewMatrix[13] = cam.x * sy * sp + cam.y * cp - cam.z * cy * sp;
+      viewMatrix[14] = cam.x * sy * cp - cam.y * sp - cam.z * cy * cp;
+      viewMatrix[15] = 1;
+
+      gl.uniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix);
+      gl.uniformMatrix4fv(modelViewMatrixLocation, false, viewMatrix);
+
+      const visibleBlocks = [...blocks];
+      
+      otherPlayers.forEach((player) => {
+        visibleBlocks.push({
+          x: Math.floor(player.x),
+          y: Math.floor(player.y),
+          z: Math.floor(player.z),
+          type: "stone"
+        });
+        visibleBlocks.push({
+          x: Math.floor(player.x),
+          y: Math.floor(player.y) + 1,
+          z: Math.floor(player.z),
+          type: "stone"
+        });
+      });
+
+      visibleBlocks.forEach(block => {
+        const mesh = createCubeMesh(block);
+
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mesh.vertices), gl.STATIC_DRAW);
+        gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(positionLocation);
+
+        const normalBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mesh.normals), gl.STATIC_DRAW);
+        gl.vertexAttribPointer(normalLocation, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(normalLocation);
+
+        const colorBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mesh.colors), gl.STATIC_DRAW);
+        gl.vertexAttribPointer(colorLocation, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(colorLocation);
+
+        gl.drawArrays(gl.TRIANGLES, 0, mesh.vertices.length / 3);
+      });
+
+      requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      if (gl) {
+        gl.getExtension('WEBGL_lose_context')?.loseContext();
+      }
+    };
   }, [blocks, playerPos, playerRot, otherPlayers]);
 
   const handleTouchStart = (e: React.TouchEvent, isLeft: boolean) => {
@@ -645,11 +774,24 @@ const MinecraftGame = () => {
           {!isMobile && (
             <div className="mb-4 text-center space-y-2">
               <p className="text-sm md:text-lg">
-                <strong>Управление:</strong> WASD - движение, Пробел - вверх, Shift - вниз
+                <strong>Управление:</strong> WASD - движение, Мышь - камера, Пробел/Shift - вверх/вниз
               </p>
               <p className="text-sm md:text-lg">
-                <strong>Мышь:</strong> ЛКМ - сломать блок, ПКМ - поставить блок
+                <strong>Блоки:</strong> 1-Булыжник 2-Трава 3-Земля 4-Камень | ЛКМ - сломать, ПКМ - поставить
               </p>
+              <div className="flex justify-center gap-2 flex-wrap">
+                {(["cobblestone", "grass", "dirt", "stone"] as const).map((type, i) => (
+                  <Button
+                    key={type}
+                    onClick={() => setSelectedBlock(type)}
+                    variant={selectedBlock === type ? "default" : "outline"}
+                    size="sm"
+                    className="gap-1"
+                  >
+                    {i + 1} - {type === "cobblestone" ? "Булыжник" : type === "grass" ? "Трава" : type === "dirt" ? "Земля" : "Камень"}
+                  </Button>
+                ))}
+              </div>
               <p className="text-xs md:text-sm text-gray-600">
                 {!isPointerLocked && "🖱️ Кликни на экран для управления камерой"}
               </p>
@@ -662,7 +804,7 @@ const MinecraftGame = () => {
               width={isMobile ? 800 : 1200}
               height={isMobile ? 600 : 700}
               onClick={handleCanvasClick}
-              className="w-full border-2 md:border-4 border-green-500 rounded-lg cursor-crosshair bg-sky-300"
+              className="w-full border-2 md:border-4 border-green-500 rounded-lg cursor-crosshair"
             />
             
             {isMobile && (
@@ -683,7 +825,7 @@ const MinecraftGame = () => {
                       }}
                     />
                   )}
-                  <div className="absolute inset-0 flex items-center justify-center text-white font-bold">
+                  <div className="absolute inset-0 flex items-center justify-center text-white font-bold text-xs">
                     MOVE
                   </div>
                 </div>
@@ -694,7 +836,7 @@ const MinecraftGame = () => {
                   onTouchMove={(e) => handleTouchMove(e, false)}
                   onTouchEnd={() => handleTouchEnd(false)}
                 >
-                  <div className="absolute inset-0 flex items-center justify-center text-white font-bold">
+                  <div className="absolute inset-0 flex items-center justify-center text-white font-bold text-xs">
                     LOOK
                   </div>
                 </div>
@@ -713,6 +855,20 @@ const MinecraftGame = () => {
                     ↓
                   </Button>
                 </div>
+
+                <div className="absolute top-4 left-4 flex gap-1">
+                  {(["cobblestone", "grass", "dirt", "stone"] as const).map((type) => (
+                    <Button
+                      key={type}
+                      onClick={() => setSelectedBlock(type)}
+                      variant={selectedBlock === type ? "default" : "outline"}
+                      size="sm"
+                      className="w-12 h-12 p-1 text-xs"
+                    >
+                      {type[0].toUpperCase()}
+                    </Button>
+                  ))}
+                </div>
               </>
             )}
           </div>
@@ -720,6 +876,7 @@ const MinecraftGame = () => {
           <div className="mt-4 text-center text-xs md:text-sm text-gray-600">
             <p>Блоков: {blocks.length} | Позиция: X:{playerPos.x.toFixed(1)} Y:{playerPos.y.toFixed(1)} Z:{playerPos.z.toFixed(1)}</p>
             {isOnline && <p className="text-green-600 font-bold">🌐 Онлайн игроков: {otherPlayers.length + 1}</p>}
+            <p className="text-blue-600 font-bold">Выбранный блок: {selectedBlock === "cobblestone" ? "Булыжник" : selectedBlock === "grass" ? "Трава" : selectedBlock === "dirt" ? "Земля" : "Камень"}</p>
           </div>
         </Card>
       </div>
