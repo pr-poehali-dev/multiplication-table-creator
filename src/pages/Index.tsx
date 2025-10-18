@@ -136,6 +136,14 @@ const Index = () => {
             <Icon name="Blocks" size={24} />
             Minecraft Обучающий ⛏️
           </Button>
+          <Button
+            onClick={() => navigate("/phone")}
+            variant="outline"
+            className="gap-2 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 border-2 border-indigo-500/50 text-lg px-6 py-6"
+          >
+            <Icon name="Phone" size={24} />
+            Телефон - Настоящие звонки 📞
+          </Button>
         </div>
 
         {!showProgress ? (

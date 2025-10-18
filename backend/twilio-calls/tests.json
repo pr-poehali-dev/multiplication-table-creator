@@ -1,0 +1,30 @@
+{
+  "tests": [
+    {
+      "name": "Get Twilio service info",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "service": "string",
+        "twilioNumber": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Make phone call",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "phoneNumber": "+1234567890",
+        "message": "Test call"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": "boolean",
+        "callSid": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

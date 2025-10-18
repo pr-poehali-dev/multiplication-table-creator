@@ -14,6 +14,7 @@ import MixedGame from "./pages/MixedGame";
 import UltimateGame from "./pages/UltimateGame";
 import AIWriter from "./pages/AIWriter";
 import MinecraftGame from "./pages/MinecraftGame";
+import Phone from "./pages/Phone";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -35,6 +36,7 @@ const App = () => (
           <Route path="/ultimate-game" element={<UltimateGame />} />
           <Route path="/ai-writer" element={<AIWriter />} />
           <Route path="/minecraft" element={<MinecraftGame />} />
+          <Route path="/phone" element={<Phone />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
