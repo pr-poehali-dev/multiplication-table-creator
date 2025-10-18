@@ -16,6 +16,7 @@ import AIWriter from "./pages/AIWriter";
 import MinecraftGame from "./pages/MinecraftGame";
 import Phone from "./pages/Phone";
 import NotFound from "./pages/NotFound";
+import InstallPrompt from "./components/InstallPrompt";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +25,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <InstallPrompt />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />

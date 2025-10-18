@@ -1,0 +1,48 @@
+{
+  "name": "Таблица умножения и обучающие игры",
+  "short_name": "Учеба",
+  "description": "Таблица умножения, языки, AI помощник, Minecraft и телефон",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#6366f1",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "games", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Таблица умножения",
+      "short_name": "Умножение",
+      "description": "Изучай таблицу умножения",
+      "url": "/",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Игра",
+      "short_name": "Игра",
+      "description": "Математическая игра",
+      "url": "/game",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Телефон",
+      "short_name": "Звонки",
+      "description": "Совершай настоящие звонки",
+      "url": "/phone",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
