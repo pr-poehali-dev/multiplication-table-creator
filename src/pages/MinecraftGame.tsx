@@ -1,38 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
-import Icon from "@/components/ui/icon";
-
-interface Block {
-  x: number;
-  y: number;
-  z: number;
-  type: "grass" | "dirt" | "stone" | "cobblestone";
-}
-
-interface Player {
-  id: string;
-  name: string;
-  x: number;
-  y: number;
-  z: number;
-  yaw: number;
-  pitch: number;
-}
-
-interface TouchControl {
-  x: number;
-  y: number;
-  startX: number;
-  startY: number;
-  active: boolean;
-}
+import { Block, Player, TouchControl, MathQuestion } from "@/components/minecraft/types";
+import GameCanvas from "@/components/minecraft/GameCanvas";
+import GameUI from "@/components/minecraft/GameUI";
+import MathQuiz from "@/components/minecraft/MathQuiz";
+import JoinRoomModal from "@/components/minecraft/JoinRoomModal";
+import MobileControls from "@/components/minecraft/MobileControls";
 
 const MinecraftGame = () => {
   const navigate = useNavigate();
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [playerPos, setPlayerPos] = useState({ x: 0, y: 2.7, z: 8 });
   const [playerRot, setPlayerRot] = useState({ yaw: 0, pitch: 0 });
@@ -40,7 +16,7 @@ const MinecraftGame = () => {
   const [isPointerLocked, setIsPointerLocked] = useState(false);
   const [playTime, setPlayTime] = useState(0);
   const [showMathQuiz, setShowMathQuiz] = useState(false);
-  const [mathQuestion, setMathQuestion] = useState({ a: 0, b: 0 });
+  const [mathQuestion, setMathQuestion] = useState<MathQuestion>({ a: 0, b: 0 });
   const [mathAnswer, setMathAnswer] = useState("");
   const [isPaused, setIsPaused] = useState(false);
   
@@ -80,60 +56,6 @@ const MinecraftGame = () => {
     }
     setBlocks(groundBlocks);
   }, []);
-
-  const createTexture = (type: Block["type"], face: 'top' | 'side' | 'bottom') => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 16;
-    canvas.height = 16;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return canvas;
-
-    if (type === "grass") {
-      if (face === "top") {
-        ctx.fillStyle = "#5DA847";
-        ctx.fillRect(0, 0, 16, 16);
-        for (let i = 0; i < 40; i++) {
-          ctx.fillStyle = Math.random() > 0.5 ? "#4A9C3A" : "#6FB857";
-          ctx.fillRect(Math.random() * 16, Math.random() * 16, 1, 1);
-        }
-      } else {
-        ctx.fillStyle = "#8B6914";
-        ctx.fillRect(0, 0, 16, 16);
-        ctx.fillStyle = "#5DA847";
-        ctx.fillRect(0, 0, 16, 2);
-      }
-    } else if (type === "dirt") {
-      ctx.fillStyle = "#8B6914";
-      ctx.fillRect(0, 0, 16, 16);
-      for (let i = 0; i < 40; i++) {
-        ctx.fillStyle = Math.random() > 0.5 ? "#6B4E0A" : "#AB8520";
-        ctx.fillRect(Math.random() * 16, Math.random() * 16, 2, 2);
-      }
-    } else if (type === "stone") {
-      ctx.fillStyle = "#7A7A7A";
-      ctx.fillRect(0, 0, 16, 16);
-      for (let i = 0; i < 50; i++) {
-        ctx.fillStyle = Math.random() > 0.5 ? "#5A5A5A" : "#9A9A9A";
-        ctx.fillRect(Math.random() * 16, Math.random() * 16, 1, 1);
-      }
-    } else if (type === "cobblestone") {
-      ctx.fillStyle = "#808080";
-      ctx.fillRect(0, 0, 16, 16);
-      for (let i = 0; i < 20; i++) {
-        ctx.fillStyle = Math.random() > 0.5 ? "#606060" : "#A0A0A0";
-        const x = Math.random() * 12;
-        const y = Math.random() * 12;
-        ctx.fillRect(x, y, 3, 3);
-      }
-      ctx.strokeStyle = "#404040";
-      ctx.lineWidth = 1;
-      for (let i = 0; i < 5; i++) {
-        ctx.strokeRect(Math.random() * 12, Math.random() * 12, 3, 3);
-      }
-    }
-    
-    return canvas;
-  };
 
   useEffect(() => {
     if (!showMathQuiz && !isPaused) {
@@ -270,30 +192,22 @@ const MinecraftGame = () => {
       
       if (response.ok) {
         const data = await response.json();
-        setOtherPlayers(data.players.filter((p: Player) => p.id !== myPlayerId));
+        const players: Player[] = data.players || [];
+        setOtherPlayers(players.filter((p: Player) => p.id !== myPlayerId));
       }
     } catch (error) {
       console.error("Ошибка синхронизации:", error);
     }
   };
 
-  const syncBlock = async (block: Block, action: "add" | "remove") => {
-    if (!isOnline) return;
-    
-    try {
-      await fetch("https://functions.poehali.dev/9efa54f8-c221-4210-b84c-430ee21c3978", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "block",
-          roomCode,
-          blockAction: action,
-          block,
-        }),
-      });
-    } catch (error) {
-      console.error("Ошибка синхронизации блока:", error);
+  const leaveRoom = () => {
+    if (syncIntervalRef.current) {
+      clearInterval(syncIntervalRef.current);
     }
+    setIsOnline(false);
+    setRoomCode("");
+    setOtherPlayers([]);
+    setMyPlayerId("");
   };
 
   useEffect(() => {
@@ -307,10 +221,6 @@ const MinecraftGame = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       setKeys((prev) => new Set(prev).add(e.key.toLowerCase()));
-      if (e.key >= "1" && e.key <= "4") {
-        const types: Block["type"][] = ["cobblestone", "grass", "dirt", "stone"];
-        setSelectedBlock(types[parseInt(e.key) - 1]);
-      }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
       setKeys((prev) => {
@@ -319,8 +229,10 @@ const MinecraftGame = () => {
         return newKeys;
       });
     };
+
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
+
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
@@ -330,648 +242,268 @@ const MinecraftGame = () => {
   useEffect(() => {
     if (isPaused) return;
 
-    const speed = 0.1;
     const interval = setInterval(() => {
       setPlayerPos((prev) => {
-        let newX = prev.x;
-        let newZ = prev.z;
-        let newY = prev.y;
+        let moveX = 0;
+        let moveZ = 0;
+        let moveY = prev.y;
+
+        const speed = 0.1;
 
         if (isMobile && leftJoystick.active) {
-          const angle = Math.atan2(leftJoystick.y - leftJoystick.startY, leftJoystick.x - leftJoystick.startX);
-          const distance = Math.min(Math.sqrt(Math.pow(leftJoystick.x - leftJoystick.startX, 2) + Math.pow(leftJoystick.y - leftJoystick.startY, 2)), 50) / 50;
-          
-          newX += Math.cos(angle + playerRot.yaw) * speed * distance;
-          newZ += Math.sin(angle + playerRot.yaw) * speed * distance;
+          const dx = (leftJoystick.x - leftJoystick.startX) / 40;
+          const dy = (leftJoystick.y - leftJoystick.startY) / 40;
+          moveX = dx * speed;
+          moveZ = dy * speed;
+        } else {
+          if (keys.has("w")) moveZ -= speed;
+          if (keys.has("s")) moveZ += speed;
+          if (keys.has("a")) moveX -= speed;
+          if (keys.has("d")) moveX += speed;
+          if (keys.has(" ")) moveY += 0.2;
         }
 
-        if (!isMobile || !isPointerLocked) {
-          if (keys.has("w")) {
-            newX -= Math.sin(playerRot.yaw) * speed;
-            newZ -= Math.cos(playerRot.yaw) * speed;
-          }
-          if (keys.has("s")) {
-            newX += Math.sin(playerRot.yaw) * speed;
-            newZ += Math.cos(playerRot.yaw) * speed;
-          }
-          if (keys.has("a")) {
-            newX -= Math.cos(playerRot.yaw) * speed;
-            newZ += Math.sin(playerRot.yaw) * speed;
-          }
-          if (keys.has("d")) {
-            newX += Math.cos(playerRot.yaw) * speed;
-            newZ -= Math.sin(playerRot.yaw) * speed;
-          }
-          if (keys.has(" ")) {
-            newY += speed;
-          }
-          if (keys.has("shift")) {
-            newY -= speed;
-          }
-        }
+        const cosYaw = Math.cos(playerRot.yaw);
+        const sinYaw = Math.sin(playerRot.yaw);
+        const newX = prev.x + moveX * cosYaw - moveZ * sinYaw;
+        const newZ = prev.z + moveX * sinYaw + moveZ * cosYaw;
 
-        return { x: newX, y: newY, z: newZ };
+        if (moveY > 1) moveY = Math.max(1, moveY - 0.05);
+
+        return { x: newX, y: moveY, z: newZ };
       });
     }, 16);
 
     return () => clearInterval(interval);
-  }, [keys, playerRot, isPaused, isMobile, leftJoystick, isPointerLocked]);
+  }, [keys, playerRot.yaw, isPaused, isMobile, leftJoystick]);
 
   useEffect(() => {
-    if (!isMobile && rightJoystick.active) {
-      const deltaX = (rightJoystick.x - rightJoystick.startX) * 0.01;
-      const deltaY = (rightJoystick.y - rightJoystick.startY) * 0.01;
+    if (isMobile && rightJoystick.active) {
+      const dx = (rightJoystick.x - rightJoystick.startX) / 100;
+      const dy = (rightJoystick.y - rightJoystick.startY) / 100;
       
       setPlayerRot((prev) => ({
-        yaw: prev.yaw + deltaX,
-        pitch: Math.max(-Math.PI / 2, Math.min(Math.PI / 2, prev.pitch - deltaY)),
+        yaw: prev.yaw - dx * 0.05,
+        pitch: Math.max(-Math.PI / 2, Math.min(Math.PI / 2, prev.pitch - dy * 0.05))
       }));
     }
   }, [rightJoystick, isMobile]);
 
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isPointerLocked || isPaused) return;
+
+    const sensitivity = 0.002;
+    setPlayerRot((prev) => ({
+      yaw: prev.yaw - e.movementX * sensitivity,
+      pitch: Math.max(-Math.PI / 2, Math.min(Math.PI / 2, prev.pitch - e.movementY * sensitivity)),
+    }));
+  };
+
   const handleCanvasClick = () => {
-    if (isMobile) return;
-    if (!canvasRef.current) return;
-    canvasRef.current.requestPointerLock();
-  };
-
-  useEffect(() => {
-    const handlePointerLockChange = () => {
-      setIsPointerLocked(document.pointerLockElement === canvasRef.current);
-    };
-    document.addEventListener("pointerlockchange", handlePointerLockChange);
-    return () => {
-      document.removeEventListener("pointerlockchange", handlePointerLockChange);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isPointerLocked || isPaused || isMobile) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      setPlayerRot((prev) => ({
-        yaw: prev.yaw + e.movementX * 0.002,
-        pitch: Math.max(-Math.PI / 2, Math.min(Math.PI / 2, prev.pitch - e.movementY * 0.002)),
-      }));
-    };
-
-    const handleClick = (e: MouseEvent) => {
-      if (e.button === 0) {
-        const hitBlock = raycast(true);
-        if (hitBlock) {
-          setBlocks((prev) => prev.filter((b) => !(b.x === hitBlock.x && b.y === hitBlock.y && b.z === hitBlock.z)));
-          syncBlock(hitBlock, "remove");
-        }
-      } else if (e.button === 2) {
-        e.preventDefault();
-        const placePos = raycast(false);
-        if (placePos) {
-          const newBlock = { ...placePos, type: selectedBlock };
-          setBlocks((prev) => [...prev, newBlock]);
-          syncBlock(newBlock, "add");
-        }
-      }
-    };
-
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mousedown", handleClick);
-    window.addEventListener("contextmenu", (e) => e.preventDefault());
-
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mousedown", handleClick);
-      window.removeEventListener("contextmenu", (e) => e.preventDefault());
-    };
-  }, [isPointerLocked, blocks, playerPos, playerRot, isPaused, isMobile, selectedBlock]);
-
-  const handleMobileBreak = () => {
-    const hitBlock = raycast(true);
-    if (hitBlock) {
-      setBlocks((prev) => prev.filter((b) => !(b.x === hitBlock.x && b.y === hitBlock.y && b.z === hitBlock.z)));
-      syncBlock(hitBlock, "remove");
+    const canvas = document.querySelector("canvas");
+    if (canvas && !isPointerLocked && !isMobile) {
+      canvas.requestPointerLock();
     }
   };
 
-  const handleMobilePlace = () => {
-    const placePos = raycast(false);
-    if (placePos) {
-      const newBlock = { ...placePos, type: selectedBlock };
-      setBlocks((prev) => [...prev, newBlock]);
-      syncBlock(newBlock, "add");
+  const handleLeftTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    const rect = (e.target as HTMLElement).getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    setLeftJoystick({ x, y, startX: x, startY: y, active: true });
+  };
+
+  const handleLeftTouchMove = (e: React.TouchEvent) => {
+    if (!leftJoystick.active) return;
+    const touch = e.touches[0];
+    const rect = (e.target as HTMLElement).getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    const dx = x - leftJoystick.startX;
+    const dy = y - leftJoystick.startY;
+    const maxDistance = 40;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance > maxDistance) {
+      const angle = Math.atan2(dy, dx);
+      setLeftJoystick({ ...leftJoystick, x: leftJoystick.startX + Math.cos(angle) * maxDistance, y: leftJoystick.startY + Math.sin(angle) * maxDistance });
+    } else {
+      setLeftJoystick({ ...leftJoystick, x, y });
     }
   };
 
-  const raycast = (forDestroy: boolean) => {
-    const dir = {
+  const handleLeftTouchEnd = () => {
+    setLeftJoystick({ x: 0, y: 0, startX: 0, startY: 0, active: false });
+  };
+
+  const handleRightTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    const rect = (e.target as HTMLElement).getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    setRightJoystick({ x, y, startX: x, startY: y, active: true });
+  };
+
+  const handleRightTouchMove = (e: React.TouchEvent) => {
+    if (!rightJoystick.active) return;
+    const touch = e.touches[0];
+    const rect = (e.target as HTMLElement).getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    setRightJoystick({ ...rightJoystick, x, y });
+  };
+
+  const handleRightTouchEnd = () => {
+    setRightJoystick({ x: 0, y: 0, startX: 0, startY: 0, active: false });
+  };
+
+  const handleJump = () => {
+    setPlayerPos((prev) => ({ ...prev, y: prev.y + 0.5 }));
+  };
+
+  const handlePlaceBlock = () => {
+    const direction = {
       x: -Math.sin(playerRot.yaw) * Math.cos(playerRot.pitch),
       y: -Math.sin(playerRot.pitch),
       z: -Math.cos(playerRot.yaw) * Math.cos(playerRot.pitch),
     };
 
-    let lastEmpty = null;
-    for (let i = 0; i < REACH_DISTANCE * 10; i++) {
-      const step = i * 0.1;
-      const checkX = Math.floor(playerPos.x + dir.x * step);
-      const checkY = Math.floor(playerPos.y + dir.y * step);
-      const checkZ = Math.floor(playerPos.z + dir.z * step);
+    for (let t = 0; t < REACH_DISTANCE; t += 0.1) {
+      const checkX = Math.round(playerPos.x + direction.x * t);
+      const checkY = Math.round(playerPos.y + direction.y * t);
+      const checkZ = Math.round(playerPos.z + direction.z * t);
 
-      const block = blocks.find((b) => b.x === checkX && b.y === checkY && b.z === checkZ);
-      if (block) {
-        return forDestroy ? block : lastEmpty;
+      const blockExists = blocks.some(
+        (b) => b.x === checkX && b.y === checkY && b.z === checkZ
+      );
+
+      if (blockExists) {
+        const placeX = Math.round(playerPos.x + direction.x * (t - 0.5));
+        const placeY = Math.round(playerPos.y + direction.y * (t - 0.5));
+        const placeZ = Math.round(playerPos.z + direction.z * (t - 0.5));
+
+        if (!blocks.some((b) => b.x === placeX && b.y === placeY && b.z === placeZ)) {
+          setBlocks((prev) => [...prev, { x: placeX, y: placeY, z: placeZ, type: selectedBlock }]);
+        }
+        return;
       }
-      lastEmpty = { x: checkX, y: checkY, z: checkZ };
     }
-    return null;
+  };
+
+  const handleBreakBlock = () => {
+    const direction = {
+      x: -Math.sin(playerRot.yaw) * Math.cos(playerRot.pitch),
+      y: -Math.sin(playerRot.pitch),
+      z: -Math.cos(playerRot.yaw) * Math.cos(playerRot.pitch),
+    };
+
+    for (let t = 0; t < REACH_DISTANCE; t += 0.1) {
+      const checkX = Math.round(playerPos.x + direction.x * t);
+      const checkY = Math.round(playerPos.y + direction.y * t);
+      const checkZ = Math.round(playerPos.z + direction.z * t);
+
+      const blockIndex = blocks.findIndex(
+        (b) => b.x === checkX && b.y === checkY && b.z === checkZ
+      );
+
+      if (blockIndex !== -1) {
+        setBlocks((prev) => prev.filter((_, i) => i !== blockIndex));
+        return;
+      }
+    }
   };
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const render = () => {
-      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      gradient.addColorStop(0, "#6BB6FF");
-      gradient.addColorStop(0.5, "#87CEEB");
-      gradient.addColorStop(1, "#B0D9F5");
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      const sunX = canvas.width * 0.8;
-      const sunY = canvas.height * 0.15;
-      const sunGradient = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, 60);
-      sunGradient.addColorStop(0, "#FFFFA0");
-      sunGradient.addColorStop(0.5, "#FFFF80");
-      sunGradient.addColorStop(1, "rgba(255, 255, 160, 0)");
-      ctx.fillStyle = sunGradient;
-      ctx.beginPath();
-      ctx.arc(sunX, sunY, 60, 0, Math.PI * 2);
-      ctx.fill();
-
-      for (let i = 0; i < 8; i++) {
-        const cloudX = ((canvas.width / 8) * i + (Date.now() / 100)) % canvas.width;
-        const cloudY = canvas.height * 0.2 + Math.sin(i) * 30;
-        ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
-        ctx.beginPath();
-        ctx.arc(cloudX, cloudY, 30, 0, Math.PI * 2);
-        ctx.arc(cloudX + 25, cloudY, 35, 0, Math.PI * 2);
-        ctx.arc(cloudX + 50, cloudY, 30, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      const allBlocks = [...blocks];
+    const handleClick = (e: MouseEvent) => {
+      if (!isPointerLocked || isPaused) return;
       
-      otherPlayers.forEach((player) => {
-        allBlocks.push({
-          x: Math.floor(player.x),
-          y: Math.floor(player.y + 0.5),
-          z: Math.floor(player.z),
-          type: "stone"
-        });
-      });
-
-      const visibleFaces = allBlocks.flatMap((block) => {
-        const dx = block.x + 0.5 - playerPos.x;
-        const dy = block.y + 0.5 - playerPos.y;
-        const dz = block.z + 0.5 - playerPos.z;
-
-        const rotX = dx * Math.cos(playerRot.yaw) - dz * Math.sin(playerRot.yaw);
-        const rotZ = dx * Math.sin(playerRot.yaw) + dz * Math.cos(playerRot.yaw);
-        const rotY = dy * Math.cos(playerRot.pitch) - rotZ * Math.sin(playerRot.pitch);
-        const finalZ = dy * Math.sin(playerRot.pitch) + rotZ * Math.cos(playerRot.pitch);
-
-        if (finalZ <= 0.1) return [];
-
-        const scale = 400 / finalZ;
-        const centerX = canvas.width / 2 + rotX * scale;
-        const centerY = canvas.height / 2 - rotY * scale;
-        const size = BLOCK_SIZE * scale;
-
-        const isPlayerBlock = otherPlayers.some(p => 
-          Math.floor(p.x) === block.x && 
-          Math.floor(p.y + 0.5) === block.y && 
-          Math.floor(p.z) === block.z
-        );
-
-        const faces = [];
-        
-        const hasBlockAbove = allBlocks.some(b => b.x === block.x && b.y === block.y + 1 && b.z === block.z);
-        const hasBlockBelow = allBlocks.some(b => b.x === block.x && b.y === block.y - 1 && b.z === block.z);
-        const hasBlockFront = allBlocks.some(b => b.x === block.x && b.y === block.y && b.z === block.z - 1);
-        const hasBlockBack = allBlocks.some(b => b.x === block.x && b.y === block.y && b.z === block.z + 1);
-        const hasBlockLeft = allBlocks.some(b => b.x === block.x - 1 && b.y === block.y && b.z === block.z);
-        const hasBlockRight = allBlocks.some(b => b.x === block.x + 1 && b.y === block.y && b.z === block.z);
-
-        const faceSize = size * 0.5;
-        
-        if (!hasBlockAbove && rotY < 0) {
-          faces.push({
-            type: 'top',
-            z: finalZ,
-            points: [
-              { x: centerX - faceSize, y: centerY - faceSize },
-              { x: centerX + faceSize, y: centerY - faceSize },
-              { x: centerX + faceSize, y: centerY },
-              { x: centerX - faceSize, y: centerY }
-            ],
-            brightness: 1,
-            blockType: block.type,
-            isPlayer: isPlayerBlock,
-            face: 'top' as const
-          });
-        }
-        
-        if (!hasBlockBelow && rotY > 0) {
-          faces.push({
-            type: 'bottom',
-            z: finalZ,
-            points: [
-              { x: centerX - faceSize, y: centerY },
-              { x: centerX + faceSize, y: centerY },
-              { x: centerX + faceSize, y: centerY + faceSize },
-              { x: centerX - faceSize, y: centerY + faceSize }
-            ],
-            brightness: 0.5,
-            blockType: block.type,
-            isPlayer: isPlayerBlock,
-            face: 'bottom' as const
-          });
-        }
-        
-        if (!hasBlockFront && rotZ > 0) {
-          faces.push({
-            type: 'front',
-            z: finalZ,
-            points: [
-              { x: centerX - faceSize, y: centerY - faceSize },
-              { x: centerX + faceSize, y: centerY - faceSize },
-              { x: centerX + faceSize, y: centerY + faceSize },
-              { x: centerX - faceSize, y: centerY + faceSize }
-            ],
-            brightness: 0.8,
-            blockType: block.type,
-            isPlayer: isPlayerBlock,
-            face: 'side' as const
-          });
-        }
-        
-        if (!hasBlockBack && rotZ < 0) {
-          faces.push({
-            type: 'back',
-            z: finalZ,
-            points: [
-              { x: centerX - faceSize, y: centerY - faceSize },
-              { x: centerX + faceSize, y: centerY - faceSize },
-              { x: centerX + faceSize, y: centerY + faceSize },
-              { x: centerX - faceSize, y: centerY + faceSize }
-            ],
-            brightness: 0.6,
-            blockType: block.type,
-            isPlayer: isPlayerBlock,
-            face: 'side' as const
-          });
-        }
-        
-        if (!hasBlockLeft && rotX < 0) {
-          faces.push({
-            type: 'left',
-            z: finalZ,
-            points: [
-              { x: centerX - faceSize, y: centerY - faceSize },
-              { x: centerX, y: centerY - faceSize * 0.7 },
-              { x: centerX, y: centerY + faceSize * 0.7 },
-              { x: centerX - faceSize, y: centerY + faceSize }
-            ],
-            brightness: 0.7,
-            blockType: block.type,
-            isPlayer: isPlayerBlock,
-            face: 'side' as const
-          });
-        }
-        
-        if (!hasBlockRight && rotX > 0) {
-          faces.push({
-            type: 'right',
-            z: finalZ,
-            points: [
-              { x: centerX, y: centerY - faceSize * 0.7 },
-              { x: centerX + faceSize, y: centerY - faceSize },
-              { x: centerX + faceSize, y: centerY + faceSize },
-              { x: centerX, y: centerY + faceSize * 0.7 }
-            ],
-            brightness: 0.7,
-            blockType: block.type,
-            isPlayer: isPlayerBlock,
-            face: 'side' as const
-          });
-        }
-
-        return faces;
-      });
-
-      visibleFaces.sort((a, b) => b.z - a.z);
-
-      visibleFaces.forEach((face) => {
-        const texture = createTexture(face.blockType, face.face);
-        
-        ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(face.points[0].x, face.points[0].y);
-        face.points.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
-        ctx.closePath();
-        ctx.clip();
-
-        const pattern = ctx.createPattern(texture, 'repeat');
-        if (pattern) {
-          ctx.fillStyle = pattern;
-          ctx.fill();
-        }
-        
-        if (face.isPlayer) {
-          ctx.fillStyle = `rgba(255, 100, 100, ${0.5 * face.brightness})`;
-        } else {
-          ctx.fillStyle = `rgba(0, 0, 0, ${(1 - face.brightness) * 0.4})`;
-        }
-        ctx.fill();
-
-        ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        
-        ctx.restore();
-      });
-
-      ctx.strokeStyle = "#FFFFFF";
-      ctx.lineWidth = 3;
-      ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-      ctx.shadowBlur = 4;
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      const crosshairSize = 15;
-      ctx.beginPath();
-      ctx.moveTo(centerX - crosshairSize, centerY);
-      ctx.lineTo(centerX + crosshairSize, centerY);
-      ctx.moveTo(centerX, centerY - crosshairSize);
-      ctx.lineTo(centerX, centerY + crosshairSize);
-      ctx.stroke();
-      ctx.shadowBlur = 0;
+      if (e.button === 0) {
+        handleBreakBlock();
+      } else if (e.button === 2) {
+        handlePlaceBlock();
+      }
     };
 
-    const animationFrame = requestAnimationFrame(function animate() {
-      render();
-      requestAnimationFrame(animate);
-    });
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      if (isPointerLocked) {
+        handlePlaceBlock();
+      }
+    };
 
-    return () => cancelAnimationFrame(animationFrame);
-  }, [blocks, playerPos, playerRot, otherPlayers]);
+    window.addEventListener("click", handleClick);
+    window.addEventListener("contextmenu", handleContextMenu);
 
-  const handleTouchStart = (e: React.TouchEvent, isLeft: boolean) => {
-    const touch = e.touches[0];
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = touch.clientX - rect.left;
-    const y = touch.clientY - rect.top;
-    
-    if (isLeft) {
-      setLeftJoystick({ x, y, startX: x, startY: y, active: true });
-    } else {
-      setRightJoystick({ x, y, startX: x, startY: y, active: true });
-    }
-  };
-
-  const handleTouchMove = (e: React.TouchEvent, isLeft: boolean) => {
-    const touch = e.touches[0];
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = touch.clientX - rect.left;
-    const y = touch.clientY - rect.top;
-    
-    if (isLeft) {
-      setLeftJoystick((prev) => ({ ...prev, x, y }));
-    } else {
-      setRightJoystick((prev) => {
-        const deltaX = (x - prev.startX) * 0.01;
-        const deltaY = (y - prev.startY) * 0.01;
-        
-        setPlayerRot((rot) => ({
-          yaw: rot.yaw + deltaX,
-          pitch: Math.max(-Math.PI / 2, Math.min(Math.PI / 2, rot.pitch - deltaY)),
-        }));
-        
-        return { ...prev, x: prev.startX, y: prev.startY };
-      });
-    }
-  };
-
-  const handleTouchEnd = (isLeft: boolean) => {
-    if (isLeft) {
-      setLeftJoystick({ x: 0, y: 0, startX: 0, startY: 0, active: false });
-    } else {
-      setRightJoystick({ x: 0, y: 0, startX: 0, startY: 0, active: false });
-    }
-  };
+    return () => {
+      window.removeEventListener("click", handleClick);
+      window.removeEventListener("contextmenu", handleContextMenu);
+    };
+  }, [isPointerLocked, isPaused, blocks, playerPos, playerRot, selectedBlock]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-cyan-50 p-2 md:p-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex items-center gap-2 md:gap-4 mb-4 md:mb-6 flex-wrap">
-          <Button onClick={() => navigate("/")} variant="outline" size="icon">
-            <Icon name="ArrowLeft" size={20} />
-          </Button>
-          <h1 className="text-xl md:text-3xl font-bold text-green-700">
-            ⛏️ Minecraft {isOnline && `[${roomCode}]`} - {Math.floor((300 - playTime) / 60)}:{String((300 - playTime) % 60).padStart(2, "0")}
-          </h1>
-          <Button 
-            onClick={() => setShowJoinRoom(true)} 
-            variant={isOnline ? "default" : "outline"}
-            size="sm"
-            className="ml-auto"
-          >
-            <Icon name="Users" size={16} />
-            {isOnline ? `Онлайн (${otherPlayers.length + 1})` : "Играть онлайн"}
-          </Button>
-        </div>
+    <div className="w-full h-screen overflow-hidden bg-black relative">
+      <GameCanvas
+        blocks={blocks}
+        playerPos={playerPos}
+        playerRot={playerRot}
+        otherPlayers={otherPlayers}
+        isPointerLocked={isPointerLocked}
+        onPointerLockChange={setIsPointerLocked}
+        onMouseMove={handleMouseMove}
+        onCanvasClick={handleCanvasClick}
+        isMobile={isMobile}
+      />
 
-        {showJoinRoom && (
-          <Card className="p-6 mb-4 bg-white/90 backdrop-blur">
-            <h2 className="text-2xl font-bold mb-4 text-center">🌐 Онлайн режим</h2>
-            <div className="space-y-4">
-              <Input
-                placeholder="Твоё имя"
-                value={playerName}
-                onChange={(e) => setPlayerName(e.target.value)}
-                className="text-lg"
-              />
-              <div className="flex gap-4">
-                <Button onClick={createRoom} className="flex-1" size="lg">
-                  <Icon name="Plus" size={20} />
-                  Создать комнату
-                </Button>
-              </div>
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white px-2 text-muted-foreground">или</span>
-                </div>
-              </div>
-              <Input
-                placeholder="Код комнаты"
-                value={roomCode}
-                onChange={(e) => setRoomCode(e.target.value)}
-                className="text-lg uppercase"
-                maxLength={6}
-              />
-              <Button onClick={joinRoom} className="w-full" size="lg" variant="outline">
-                <Icon name="LogIn" size={20} />
-                Войти в комнату
-              </Button>
-              <Button onClick={() => setShowJoinRoom(false)} variant="ghost" className="w-full">
-                Отмена
-              </Button>
-            </div>
-          </Card>
-        )}
+      <GameUI
+        isOnline={isOnline}
+        roomCode={roomCode}
+        playerName={playerName}
+        onlinePlayerCount={otherPlayers.length + 1}
+        playTime={playTime}
+        selectedBlock={selectedBlock}
+        onBlockSelect={setSelectedBlock}
+        onShowJoinRoom={() => setShowJoinRoom(true)}
+        onLeaveRoom={leaveRoom}
+        onBack={() => navigate("/")}
+        isMobile={isMobile}
+      />
 
-        {showMathQuiz && (
-          <Card className="p-6 md:p-8 mb-4 md:mb-6 bg-gradient-to-br from-yellow-100 to-orange-100 border-4 border-orange-400">
-            <h2 className="text-xl md:text-2xl font-bold text-center mb-4 md:mb-6 text-orange-700">⏸️ Математическая пауза!</h2>
-            <p className="text-lg md:text-xl text-center mb-4 md:mb-6">
-              Реши пример, чтобы продолжить игру:
-            </p>
-            <div className="text-center">
-              <p className="text-3xl md:text-4xl font-bold mb-4 md:mb-6 text-orange-800">
-                {mathQuestion.a} × {mathQuestion.b} = ?
-              </p>
-              <input
-                type="number"
-                value={mathAnswer}
-                onChange={(e) => setMathAnswer(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleMathSubmit()}
-                className="text-2xl md:text-3xl text-center w-32 md:w-40 p-3 md:p-4 border-4 border-orange-400 rounded-lg mb-4 md:mb-6"
-                autoFocus
-                placeholder="?"
-              />
-              <div>
-                <Button onClick={handleMathSubmit} size="lg" className="text-lg md:text-xl px-6 md:px-8 py-4 md:py-6">
-                  Проверить ✓
-                </Button>
-              </div>
-            </div>
-          </Card>
-        )}
+      {isMobile && (
+        <MobileControls
+          leftJoystick={leftJoystick}
+          rightJoystick={rightJoystick}
+          onLeftTouchStart={handleLeftTouchStart}
+          onLeftTouchMove={handleLeftTouchMove}
+          onLeftTouchEnd={handleLeftTouchEnd}
+          onRightTouchStart={handleRightTouchStart}
+          onRightTouchMove={handleRightTouchMove}
+          onRightTouchEnd={handleRightTouchEnd}
+          onJump={handleJump}
+          onPlace={handlePlaceBlock}
+          onBreak={handleBreakBlock}
+        />
+      )}
 
-        <Card className="p-4 md:p-6 bg-white/90 backdrop-blur">
-          {!isMobile && (
-            <div className="mb-4 text-center space-y-2">
-              <p className="text-sm md:text-lg">
-                <strong>Управление:</strong> WASD - движение, Мышь - камера, Пробел/Shift - вверх/вниз
-              </p>
-              <p className="text-sm md:text-lg">
-                <strong>Блоки:</strong> 1-Булыжник 2-Трава 3-Земля 4-Камень | ЛКМ - сломать, ПКМ - поставить
-              </p>
-              <div className="flex justify-center gap-2 flex-wrap">
-                {(["cobblestone", "grass", "dirt", "stone"] as const).map((type, i) => (
-                  <Button
-                    key={type}
-                    onClick={() => setSelectedBlock(type)}
-                    variant={selectedBlock === type ? "default" : "outline"}
-                    size="sm"
-                    className="gap-1"
-                  >
-                    {i + 1} - {type === "cobblestone" ? "Булыжник" : type === "grass" ? "Трава" : type === "dirt" ? "Земля" : "Камень"}
-                  </Button>
-                ))}
-              </div>
-              <p className="text-xs md:text-sm text-gray-600">
-                {!isPointerLocked && "🖱️ Кликни на экран для управления камерой"}
-              </p>
-            </div>
-          )}
+      {showMathQuiz && (
+        <MathQuiz
+          question={mathQuestion}
+          answer={mathAnswer}
+          onAnswerChange={setMathAnswer}
+          onSubmit={handleMathSubmit}
+        />
+      )}
 
-          <div className="relative">
-            <canvas
-              ref={canvasRef}
-              width={isMobile ? 800 : 1200}
-              height={isMobile ? 600 : 700}
-              onClick={handleCanvasClick}
-              className="w-full border-2 md:border-4 border-green-500 rounded-lg cursor-crosshair"
-            />
-            
-            {isMobile && (
-              <>
-                <div 
-                  className="absolute bottom-4 left-4 w-32 h-32 bg-gray-800/50 rounded-full border-4 border-white"
-                  onTouchStart={(e) => handleTouchStart(e, true)}
-                  onTouchMove={(e) => handleTouchMove(e, true)}
-                  onTouchEnd={() => handleTouchEnd(true)}
-                >
-                  {leftJoystick.active && (
-                    <div 
-                      className="absolute w-12 h-12 bg-white rounded-full"
-                      style={{
-                        left: leftJoystick.x - leftJoystick.startX + 40,
-                        top: leftJoystick.y - leftJoystick.startY + 40,
-                        transform: 'translate(-50%, -50%)'
-                      }}
-                    />
-                  )}
-                  <div className="absolute inset-0 flex items-center justify-center text-white font-bold text-xs">
-                    MOVE
-                  </div>
-                </div>
-
-                <div 
-                  className="absolute bottom-4 right-4 w-32 h-32 bg-gray-800/50 rounded-full border-4 border-white"
-                  onTouchStart={(e) => handleTouchStart(e, false)}
-                  onTouchMove={(e) => handleTouchMove(e, false)}
-                  onTouchEnd={() => handleTouchEnd(false)}
-                >
-                  <div className="absolute inset-0 flex items-center justify-center text-white font-bold text-xs">
-                    LOOK
-                  </div>
-                </div>
-
-                <div className="absolute top-4 right-4 flex flex-col gap-2">
-                  <Button onClick={handleMobileBreak} size="lg" variant="destructive" className="w-16 h-16">
-                    <Icon name="Hammer" size={24} />
-                  </Button>
-                  <Button onClick={handleMobilePlace} size="lg" className="w-16 h-16">
-                    <Icon name="Plus" size={24} />
-                  </Button>
-                  <Button onClick={() => setPlayerPos(p => ({...p, y: p.y + 0.5}))} size="lg" variant="outline" className="w-16 h-16">
-                    ↑
-                  </Button>
-                  <Button onClick={() => setPlayerPos(p => ({...p, y: p.y - 0.5}))} size="lg" variant="outline" className="w-16 h-16">
-                    ↓
-                  </Button>
-                </div>
-
-                <div className="absolute top-4 left-4 flex gap-1">
-                  {(["cobblestone", "grass", "dirt", "stone"] as const).map((type) => (
-                    <Button
-                      key={type}
-                      onClick={() => setSelectedBlock(type)}
-                      variant={selectedBlock === type ? "default" : "outline"}
-                      size="sm"
-                      className="w-12 h-12 p-1 text-xs"
-                    >
-                      {type[0].toUpperCase()}
-                    </Button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-
-          <div className="mt-4 text-center text-xs md:text-sm text-gray-600">
-            <p>Блоков: {blocks.length} | Позиция: X:{playerPos.x.toFixed(1)} Y:{playerPos.y.toFixed(1)} Z:{playerPos.z.toFixed(1)}</p>
-            {isOnline && <p className="text-green-600 font-bold">🌐 Онлайн игроков: {otherPlayers.length + 1}</p>}
-            <p className="text-blue-600 font-bold">📦 Выбранный блок: {selectedBlock === "cobblestone" ? "Булыжник" : selectedBlock === "grass" ? "Трава" : selectedBlock === "dirt" ? "Земля" : "Камень"}</p>
-          </div>
-        </Card>
-      </div>
+      {showJoinRoom && (
+        <JoinRoomModal
+          playerName={playerName}
+          roomCode={roomCode}
+          onPlayerNameChange={setPlayerName}
+          onRoomCodeChange={setRoomCode}
+          onCreateRoom={createRoom}
+          onJoinRoom={joinRoom}
+          onClose={() => setShowJoinRoom(false)}
+        />
+      )}
     </div>
   );
 };
