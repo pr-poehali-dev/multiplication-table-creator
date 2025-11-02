@@ -27,6 +27,7 @@ const GameCanvas = ({
 }: GameCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
+  const lastFrameTimeRef = useRef<number>(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -59,8 +60,11 @@ const GameCanvas = ({
     const BLOCK_SIZE = 1;
 
     const render = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      const scale = isMobile ? 0.75 : 1;
+      canvas.width = window.innerWidth * scale;
+      canvas.height = window.innerHeight * scale;
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
 
       ctx.fillStyle = "#87CEEB";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -94,7 +98,13 @@ const GameCanvas = ({
         return { x: sx, y: sy, z: z2 };
       };
 
-      const sortedBlocks = [...blocks].sort((a, b) => {
+      const renderDistance = 20;
+      const visibleBlocks = blocks.filter((block) => {
+        const dist = Math.hypot(block.x - playerPos.x, block.y - playerPos.y, block.z - playerPos.z);
+        return dist <= renderDistance;
+      });
+
+      const sortedBlocks = [...visibleBlocks].sort((a, b) => {
         const distA = Math.hypot(a.x - playerPos.x, a.y - playerPos.y, a.z - playerPos.z);
         const distB = Math.hypot(b.x - playerPos.x, b.y - playerPos.y, b.z - playerPos.z);
         return distB - distA;
@@ -112,8 +122,8 @@ const GameCanvas = ({
           { x: block.x, y: block.y + BLOCK_SIZE, z: block.z + BLOCK_SIZE },
         ];
 
-        const projected = vertices.map((v) => project(v.x, v.y, v.z)).filter((p) => p !== null);
-        if (projected.length < 4) return;
+        const projected = vertices.map((v) => project(v.x, v.y, v.z));
+        if (projected.filter(p => p !== null).length < 4) return;
 
         const faces = [
           { indices: [0, 1, 2, 3], face: 'side' as const },
@@ -125,13 +135,13 @@ const GameCanvas = ({
         ];
 
         faces.forEach(({ indices, face }) => {
-          const faceVertices = indices.map((i) => projected[i]).filter((p) => p !== null);
+          const faceVertices = indices.map((i) => projected[i]).filter((p): p is { x: number; y: number; z: number } => p !== null);
           if (faceVertices.length < 3) return;
 
           ctx.beginPath();
-          ctx.moveTo(faceVertices[0]!.x, faceVertices[0]!.y);
+          ctx.moveTo(faceVertices[0].x, faceVertices[0].y);
           faceVertices.forEach((v) => {
-            if (v) ctx.lineTo(v.x, v.y);
+            ctx.lineTo(v.x, v.y);
           });
           ctx.closePath();
 
@@ -162,7 +172,17 @@ const GameCanvas = ({
         }
       });
 
-      animationFrameRef.current = requestAnimationFrame(render);
+      animationFrameRef.current = requestAnimationFrame((timestamp) => {
+        const fps = isMobile ? 30 : 60;
+        const frameInterval = 1000 / fps;
+        
+        if (timestamp - lastFrameTimeRef.current >= frameInterval) {
+          lastFrameTimeRef.current = timestamp;
+          render();
+        } else {
+          animationFrameRef.current = requestAnimationFrame(render);
+        }
+      });
     };
 
     render();

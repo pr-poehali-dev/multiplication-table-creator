@@ -1,6 +1,14 @@
 import { Block } from "./types";
 
+const textureCache = new Map<string, HTMLCanvasElement>();
+
 export const createTexture = (type: Block["type"], face: 'top' | 'side' | 'bottom') => {
+  const cacheKey = `${type}_${face}`;
+  
+  if (textureCache.has(cacheKey)) {
+    return textureCache.get(cacheKey)!;
+  }
+  
   const canvas = document.createElement('canvas');
   canvas.width = 16;
   canvas.height = 16;
@@ -51,5 +59,6 @@ export const createTexture = (type: Block["type"], face: 'top' | 'side' | 'botto
     }
   }
   
+  textureCache.set(cacheKey, canvas);
   return canvas;
 };

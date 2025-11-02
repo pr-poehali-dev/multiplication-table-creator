@@ -42,19 +42,31 @@ const MinecraftGame = () => {
   }, []);
 
   useEffect(() => {
-    const groundBlocks: Block[] = [];
-    for (let x = -15; x <= 15; x++) {
-      for (let z = -15; z <= 15; z++) {
-        groundBlocks.push({ x, y: 0, z, type: "grass" });
-        if (Math.random() > 0.8) {
-          const height = Math.floor(Math.random() * 2) + 1;
-          for (let h = 1; h <= height; h++) {
-            groundBlocks.push({ x, y: h, z, type: Math.random() > 0.5 ? "dirt" : "stone" });
+    const savedBlocks = localStorage.getItem('minecraft_blocks');
+    const savedPos = localStorage.getItem('minecraft_player_pos');
+    
+    if (savedBlocks) {
+      setBlocks(JSON.parse(savedBlocks));
+    } else {
+      const groundBlocks: Block[] = [];
+      for (let x = -15; x <= 15; x++) {
+        for (let z = -15; z <= 15; z++) {
+          groundBlocks.push({ x, y: 0, z, type: "grass" });
+          if (Math.random() > 0.8) {
+            const height = Math.floor(Math.random() * 2) + 1;
+            for (let h = 1; h <= height; h++) {
+              groundBlocks.push({ x, y: h, z, type: Math.random() > 0.5 ? "dirt" : "stone" });
+            }
           }
         }
       }
+      setBlocks(groundBlocks);
+      localStorage.setItem('minecraft_blocks', JSON.stringify(groundBlocks));
     }
-    setBlocks(groundBlocks);
+    
+    if (savedPos) {
+      setPlayerPos(JSON.parse(savedPos));
+    }
   }, []);
 
   useEffect(() => {
@@ -168,13 +180,16 @@ const MinecraftGame = () => {
   const startSyncInterval = () => {
     syncIntervalRef.current = setInterval(() => {
       syncPosition();
-    }, 200);
+    }, 500);
   };
 
   const syncPosition = async () => {
     if (!isOnline || !myPlayerId) return;
     
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      
       const response = await fetch("https://functions.poehali.dev/9efa54f8-c221-4210-b84c-430ee21c3978", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -188,7 +203,10 @@ const MinecraftGame = () => {
           yaw: playerRot.yaw,
           pitch: playerRot.pitch,
         }),
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
       
       if (response.ok) {
         const data = await response.json();
@@ -196,7 +214,11 @@ const MinecraftGame = () => {
         setOtherPlayers(players.filter((p: Player) => p.id !== myPlayerId));
       }
     } catch (error) {
-      console.error("Ошибка синхронизации:", error);
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log("Синхронизация пропущена (слабый интернет)");
+      } else {
+        console.error("Ошибка синхронизации:", error);
+      }
     }
   };
 
@@ -270,7 +292,9 @@ const MinecraftGame = () => {
 
         if (moveY > 1) moveY = Math.max(1, moveY - 0.05);
 
-        return { x: newX, y: moveY, z: newZ };
+        const newPos = { x: newX, y: moveY, z: newZ };
+        localStorage.setItem('minecraft_player_pos', JSON.stringify(newPos));
+        return newPos;
       });
     }, 16);
 
@@ -383,7 +407,11 @@ const MinecraftGame = () => {
         const placeZ = Math.round(playerPos.z + direction.z * (t - 0.5));
 
         if (!blocks.some((b) => b.x === placeX && b.y === placeY && b.z === placeZ)) {
-          setBlocks((prev) => [...prev, { x: placeX, y: placeY, z: placeZ, type: selectedBlock }]);
+          setBlocks((prev) => {
+            const newBlocks = [...prev, { x: placeX, y: placeY, z: placeZ, type: selectedBlock }];
+            localStorage.setItem('minecraft_blocks', JSON.stringify(newBlocks));
+            return newBlocks;
+          });
         }
         return;
       }
@@ -407,7 +435,11 @@ const MinecraftGame = () => {
       );
 
       if (blockIndex !== -1) {
-        setBlocks((prev) => prev.filter((_, i) => i !== blockIndex));
+        setBlocks((prev) => {
+          const newBlocks = prev.filter((_, i) => i !== blockIndex);
+          localStorage.setItem('minecraft_blocks', JSON.stringify(newBlocks));
+          return newBlocks;
+        });
         return;
       }
     }
