@@ -1,0 +1,22 @@
+{
+  "tests": [
+    {
+      "name": "Handle OPTIONS request",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": "",
+      "bodyMatcher": "exact"
+    },
+    {
+      "name": "Reject GET method",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 405,
+      "expectedBody": {
+        "error": "Method not allowed"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
