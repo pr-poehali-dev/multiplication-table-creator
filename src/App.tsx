@@ -4,6 +4,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import English from "./pages/English";
 import Chinese from "./pages/Chinese";
@@ -22,28 +24,30 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <InstallPrompt />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/english" element={<English />} />
-          <Route path="/chinese" element={<Chinese />} />
-          <Route path="/german" element={<German />} />
-          <Route path="/russian" element={<Russian />} />
-          <Route path="/game" element={<MultiplicationGame />} />
-          <Route path="/mixed-game" element={<MixedGame />} />
-          <Route path="/ultimate-game" element={<UltimateGame />} />
-          <Route path="/ai-writer" element={<AIWriter />} />
-          <Route path="/minecraft" element={<MinecraftGame />} />
-          <Route path="/phone" element={<Phone />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <InstallPrompt />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+            <Route path="/english" element={<ProtectedRoute><English /></ProtectedRoute>} />
+            <Route path="/chinese" element={<ProtectedRoute><Chinese /></ProtectedRoute>} />
+            <Route path="/german" element={<ProtectedRoute><German /></ProtectedRoute>} />
+            <Route path="/russian" element={<ProtectedRoute><Russian /></ProtectedRoute>} />
+            <Route path="/game" element={<ProtectedRoute><MultiplicationGame /></ProtectedRoute>} />
+            <Route path="/mixed-game" element={<ProtectedRoute><MixedGame /></ProtectedRoute>} />
+            <Route path="/ultimate-game" element={<ProtectedRoute><UltimateGame /></ProtectedRoute>} />
+            <Route path="/ai-writer" element={<ProtectedRoute><AIWriter /></ProtectedRoute>} />
+            <Route path="/minecraft" element={<ProtectedRoute><MinecraftGame /></ProtectedRoute>} />
+            <Route path="/phone" element={<ProtectedRoute><Phone /></ProtectedRoute>} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

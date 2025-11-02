@@ -1,5 +1,6 @@
 {
   "twilio-calls": "https://functions.poehali.dev/6133c61a-3ff5-407d-90a2-c3bc5277aaf7",
   "minecraft-sync": "https://functions.poehali.dev/9efa54f8-c221-4210-b84c-430ee21c3978",
-  "ai-writer": "https://functions.poehali.dev/62a855d4-339b-4a03-a964-e21c858b9015"
+  "ai-writer": "https://functions.poehali.dev/62a855d4-339b-4a03-a964-e21c858b9015",
+  "telegram-auth": "https://functions.poehali.dev/56712dda-5408-4d19-bda6-42dc97480e9e"
 }
