@@ -12,6 +12,7 @@ interface GameCanvasProps {
   onMouseMove: (e: MouseEvent) => void;
   onCanvasClick: () => void;
   isMobile: boolean;
+  gameMode: '2d' | '3d';
 }
 
 const GameCanvas = ({
@@ -23,7 +24,8 @@ const GameCanvas = ({
   onPointerLockChange,
   onMouseMove,
   onCanvasClick,
-  isMobile
+  isMobile,
+  gameMode
 }: GameCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
@@ -59,6 +61,46 @@ const GameCanvas = ({
 
     const BLOCK_SIZE = 1;
 
+    const render2D = () => {
+      const blockPixelSize = 40;
+      const cameraX = playerPos.x;
+      const cameraY = playerPos.y;
+      
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      
+      blocks.forEach((block) => {
+        const screenX = centerX + (block.x - cameraX) * blockPixelSize;
+        const screenY = centerY - (block.y - cameraY) * blockPixelSize;
+        
+        if (screenX + blockPixelSize < 0 || screenX > canvas.width) return;
+        if (screenY + blockPixelSize < 0 || screenY > canvas.height) return;
+        
+        const texture = createTexture(block.type, 'side');
+        ctx.drawImage(texture, screenX, screenY, blockPixelSize, blockPixelSize);
+        
+        ctx.strokeStyle = "rgba(0,0,0,0.2)";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(screenX, screenY, blockPixelSize, blockPixelSize);
+      });
+      
+      otherPlayers.forEach((player) => {
+        const screenX = centerX + (player.x - cameraX) * blockPixelSize;
+        const screenY = centerY - (player.y - cameraY) * blockPixelSize;
+        
+        ctx.fillStyle = "#FFD700";
+        ctx.fillRect(screenX - 15, screenY - 60, 30, 60);
+        
+        ctx.fillStyle = "white";
+        ctx.font = "12px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(player.name, screenX, screenY - 65);
+      });
+      
+      ctx.fillStyle = "#00FF00";
+      ctx.fillRect(centerX - 15, centerY - 60, 30, 60);
+    };
+
     const render = () => {
       const scale = isMobile ? 0.75 : 1;
       canvas.width = window.innerWidth * scale;
@@ -68,6 +110,11 @@ const GameCanvas = ({
 
       ctx.fillStyle = "#87CEEB";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (gameMode === '2d') {
+        render2D();
+        return;
+      }
 
       const fov = 90;
       const aspect = canvas.width / canvas.height;
@@ -192,7 +239,7 @@ const GameCanvas = ({
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [blocks, playerPos, playerRot, otherPlayers]);
+  }, [blocks, playerPos, playerRot, otherPlayers, gameMode, isMobile]);
 
   return (
     <canvas

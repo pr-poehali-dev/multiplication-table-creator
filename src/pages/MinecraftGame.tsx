@@ -9,6 +9,7 @@ import MobileControls from "@/components/minecraft/MobileControls";
 
 const MinecraftGame = () => {
   const navigate = useNavigate();
+  const [gameMode, setGameMode] = useState<'2d' | '3d' | null>(null);
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [playerPos, setPlayerPos] = useState({ x: 0, y: 2.7, z: 8 });
   const [playerRot, setPlayerRot] = useState({ yaw: 0, pitch: 0 });
@@ -472,6 +473,42 @@ const MinecraftGame = () => {
     };
   }, [isPointerLocked, isPaused, blocks, playerPos, playerRot, selectedBlock]);
 
+  if (!gameMode) {
+    return (
+      <div className="w-full h-screen flex items-center justify-center bg-gradient-to-b from-sky-400 to-green-500">
+        <div className="bg-black/80 backdrop-blur-sm p-8 rounded-xl shadow-2xl max-w-md w-full mx-4">
+          <h1 className="text-4xl font-bold text-white text-center mb-2">Minecraft</h1>
+          <p className="text-gray-300 text-center mb-8">Выбери режим игры</p>
+          
+          <div className="space-y-4">
+            <button
+              onClick={() => setGameMode('3d')}
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-lg transition-all transform hover:scale-105 shadow-lg"
+            >
+              <div className="text-2xl mb-1">🎮 3D режим</div>
+              <div className="text-sm text-green-200">Полное погружение с видом от первого лица</div>
+            </button>
+            
+            <button
+              onClick={() => setGameMode('2d')}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg transition-all transform hover:scale-105 shadow-lg"
+            >
+              <div className="text-2xl mb-1">🕹️ 2D режим</div>
+              <div className="text-sm text-blue-200">Классический вид сбоку (скоро)</div>
+            </button>
+          </div>
+          
+          <button
+            onClick={() => navigate("/")}
+            className="w-full mt-6 bg-gray-700 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition-all"
+          >
+            ← Назад
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full h-screen overflow-hidden bg-black relative">
       <GameCanvas
@@ -484,6 +521,7 @@ const MinecraftGame = () => {
         onMouseMove={handleMouseMove}
         onCanvasClick={handleCanvasClick}
         isMobile={isMobile}
+        gameMode={gameMode}
       />
 
       <GameUI
