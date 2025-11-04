@@ -14,6 +14,8 @@ interface GameUIProps {
   onLeaveRoom: () => void;
   onBack: () => void;
   isMobile: boolean;
+  gameMode: '2d' | '3d';
+  onToggleGameMode: () => void;
 }
 
 const GameUI = ({
@@ -27,7 +29,9 @@ const GameUI = ({
   onShowJoinRoom,
   onLeaveRoom,
   onBack,
-  isMobile
+  isMobile,
+  gameMode,
+  onToggleGameMode
 }: GameUIProps) => {
   const blockTypes: Block["type"][] = ["cobblestone", "dirt", "stone", "grass"];
 
@@ -54,6 +58,13 @@ const GameUI = ({
       </div>
 
       <div className="fixed top-4 right-4 z-30 flex gap-2">
+        <Button 
+          onClick={onToggleGameMode} 
+          variant="outline" 
+          className="bg-purple-500 text-white hover:bg-purple-600"
+        >
+          {gameMode === '3d' ? '🎮 3D' : '🕹️ 2D'}
+        </Button>
         {!isOnline ? (
           <Button onClick={onShowJoinRoom} variant="outline" className="bg-blue-500 text-white hover:bg-blue-600">
             <Icon name="Users" className="mr-2" />

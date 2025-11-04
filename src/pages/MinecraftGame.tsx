@@ -536,6 +536,8 @@ const MinecraftGame = () => {
         onLeaveRoom={leaveRoom}
         onBack={() => navigate("/")}
         isMobile={isMobile}
+        gameMode={gameMode}
+        onToggleGameMode={() => setGameMode(gameMode === '3d' ? '2d' : '3d')}
       />
 
       {isMobile && (

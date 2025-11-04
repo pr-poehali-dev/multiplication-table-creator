@@ -4,12 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import Icon from "@/components/ui/icon";
 import { useNavigate } from "react-router-dom";
+import PhoneAuth from "@/components/PhoneAuth";
 
 const Index = () => {
   const navigate = useNavigate();
   const [progress, setProgress] = useState<{ [key: string]: boolean }>({});
   const [masteredTables, setMasteredTables] = useState<{ [key: number]: boolean }>({});
   const [showProgress, setShowProgress] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
+  const [user, setUser] = useState<{ phone: string; name: string } | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem("multiplicationProgress");
@@ -20,7 +23,22 @@ const Index = () => {
     if (savedMastered) {
       setMasteredTables(JSON.parse(savedMastered));
     }
+    const savedUser = localStorage.getItem("phoneAuthUser");
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
+    }
   }, []);
+
+  const handleAuth = (userData: { phone: string; name: string }) => {
+    setUser(userData);
+    localStorage.setItem("phoneAuthUser", JSON.stringify(userData));
+    setShowAuth(false);
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem("phoneAuthUser");
+  };
 
   const toggleCell = (key: string) => {
     const newProgress = { ...progress, [key]: !progress[key] };
@@ -48,6 +66,26 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-12 max-w-6xl">
+        <div className="fixed top-4 right-4 z-50">
+          {user ? (
+            <div className="flex items-center gap-3 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg shadow-lg">
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+                  {user.name[0].toUpperCase()}
+                </div>
+                <span className="font-medium">{user.name}</span>
+              </div>
+              <Button onClick={handleLogout} variant="ghost" size="sm">
+                <Icon name="LogOut" size={16} />
+              </Button>
+            </div>
+          ) : (
+            <Button onClick={() => setShowAuth(true)} variant="outline" className="shadow-lg">
+              <Icon name="Phone" className="mr-2" size={18} />
+              Войти
+            </Button>
+          )}
+        </div>
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold mb-4 text-foreground">Таблица умножения</h1>
           <p className="text-lg text-muted-foreground">Изучай и отслеживай свой прогресс</p>
@@ -283,6 +321,14 @@ const Index = () => {
           </div>
         )}
       </div>
+
+      {showAuth && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowAuth(false)}>
+          <div onClick={(e) => e.stopPropagation()}>
+            <PhoneAuth onAuth={handleAuth} onClose={() => setShowAuth(false)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

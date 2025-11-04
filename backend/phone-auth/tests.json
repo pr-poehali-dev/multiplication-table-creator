@@ -1,0 +1,50 @@
+{
+  "tests": [
+    {
+      "name": "Send verification code",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "send_code",
+        "phone": "79991234567"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "message": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Verify code - invalid",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "verify_code",
+        "phone": "79991234567",
+        "code": "0000"
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Set user name",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "set_name",
+        "phone": "79991234567",
+        "name": "Иван"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "name": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
